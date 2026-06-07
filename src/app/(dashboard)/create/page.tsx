@@ -749,11 +749,18 @@ export default function CreatePage() {
               {generatedTopics.map((topic, index) => (
                 <button
                   key={index}
-                  onClick={() => handleSelectTopic(topic)}
-                  className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-primary hover:bg-primary-bg transition-colors"
+                  onClick={() => {
+                    setSelectedTopic(topic.title)
+                    setTitle(topic.title)
+                  }}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
+                    selectedTopic === topic.title
+                      ? 'border-primary bg-primary-bg'
+                      : 'border-gray-100 hover:border-primary/30'
+                  }`}
                 >
-                  <div className="font-medium text-primary mb-1">{topic.title}</div>
-                  <div className="text-xs text-gray-500">{topic.reason}</div>
+                  <div className="font-medium text-primary">{topic.title}</div>
+                  <div className="text-xs text-gray-500 mt-1">{topic.reason}</div>
                 </button>
               ))}
             </div>
