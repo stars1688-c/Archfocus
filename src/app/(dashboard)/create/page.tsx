@@ -222,7 +222,8 @@ export default function CreatePage() {
           description: selectedAccount.description,
         },
         selectedTopic: title,
-        searchEnabled: true,
+        searchEnabled: dataSource.webSearch,
+        userRequirements: writingRequirements,
         currentStep: 'content_generation'
       })
 
@@ -559,6 +560,19 @@ export default function CreatePage() {
                   >
                     {aiLoading ? '生成中...' : '✨ AI 生成内容'}
                   </Button>
+                </div>
+                <div className="form-group">
+                  <label className="block text-sm font-medium text-gray-500 mb-1.5">
+                    写作要求（可选）
+                  </label>
+                  <textarea
+                    className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-primary resize-none"
+                    rows={3}
+                    placeholder="可以补充语气风格、字数要求、关键词等..."
+                    value={writingRequirements}
+                    onChange={(e) => setWritingRequirements(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">💡 可以直接在AI生成的文案进行修改</p>
                 </div>
                 <textarea
                   className="w-full h-64 p-4 border border-gray-200 rounded-xl outline-none focus:border-primary resize-none"
