@@ -433,6 +433,16 @@ export default function CreatePage() {
 
   const canNext = currentStep === 0 ? title : currentStep === 1 ? content : true
 
+  // 复制文本
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      alert('已复制到剪贴板')
+    } catch (err) {
+      console.error('复制失败:', err)
+    }
+  }
+
   return (
     <>
       <Header
@@ -739,14 +749,67 @@ export default function CreatePage() {
             {currentStep === 3 && (
               <div className="space-y-4">
                 <h3 className="font-medium text-center mb-6">📝 发布确认</h3>
+
+                {/* 笔记标题 */}
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="font-medium mb-2">标题</div>
-                  <div className="text-gray-700">{title || '-'}</div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">笔记标题</div>
+                      <div className="font-medium">{title || '-'}</div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyText(title)}
+                    >
+                      📋 复制
+                    </Button>
+                  </div>
                 </div>
+
+                {/* 笔记内容 */}
                 <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="font-medium mb-2">内容</div>
-                  <div className="text-gray-700 whitespace-pre-wrap">{content || '-'}</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="text-xs text-gray-500 mb-1">笔记内容</div>
+                      <div className="whitespace-pre-wrap">{content || '-'}</div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyText(content)}
+                    >
+                      📋 复制
+                    </Button>
+                  </div>
                 </div>
+
+                {/* 笔记配图列表 */}
+                {generatedImages.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-xs text-gray-500">笔记配图（{generatedImages.length}张，点击复制）</div>
+                    {generatedImages.map((img, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="w-9 h-12 bg-white rounded border border-gray-200 flex items-center justify-center text-xs text-gray-400">
+                          {index === 0 ? '封面' : `图${index + 1}`}
+                        </div>
+                        <img src={img} alt={`配图${index + 1}`} className="h-12 w-auto rounded" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-auto"
+                          onClick={() => copyText(img)}
+                        >
+                          📋 复制
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {generatedImageUrl && (
                   <div className="bg-gray-50 rounded-xl p-4">
                     <div className="font-medium mb-2">配图</div>
