@@ -574,13 +574,16 @@ export default function CreatePage() {
                   />
                   <p className="text-xs text-gray-400 mt-1">💡 可以直接在AI生成的文案进行修改</p>
                 </div>
-                <textarea
-                  className="w-full h-64 p-4 border border-gray-200 rounded-xl outline-none focus:border-primary resize-none"
-                  placeholder="输入笔记内容..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                />
-                <p className="text-xs text-gray-400 text-right">{content.length}/1000</p>
+                {/* 可编辑的文案 */}
+                <div
+                  contentEditable
+                  className="w-full p-5 bg-gray-50 rounded-xl border-l-4 border-primary outline-none min-h-[200px] whitespace-pre-wrap leading-relaxed"
+                  onBlur={(e) => setContent(e.currentTarget.textContent || '')}
+                  suppressContentEditableWarning
+                >
+                  {humanizedContent || content}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">💡 可直接点击文案内容进行修改</p>
               </div>
             )}
 
