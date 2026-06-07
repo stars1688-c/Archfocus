@@ -639,6 +639,21 @@ export default function CreatePage() {
                         <SelectItem value="doubao-seedream-5-0-lite">Seedream 5.0</SelectItem>
                       </SelectContent>
                     </Select>
+
+                    <div className="form-group mt-4">
+                      <label className="block text-sm font-medium text-gray-500 mb-1.5">生图数量</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number"
+                          min={1}
+                          max={9}
+                          value={imageCount}
+                          onChange={(e) => setImageCount(Math.max(1, Math.min(9, parseInt(e.target.value) || 1)))}
+                          className="w-20 px-3 py-2 border border-gray-200 rounded-xl text-center outline-none focus:border-primary"
+                        />
+                        <span className="text-sm text-gray-500">张（封面尺寸 3:4）</span>
+                      </div>
+                    </div>
                   </div>
                 )}
 
