@@ -489,6 +489,35 @@ export default function CreatePage() {
                 />
                 <p className="text-xs text-gray-400 text-right">{title.length}/100</p>
 
+                {/* 数据源多选 */}
+                <div className="form-group">
+                  <label className="block text-sm font-medium text-gray-500 mb-2">数据源（可多选）</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDataSource(prev => ({ ...prev, webSearch: !prev.webSearch }))}
+                      className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
+                        dataSource.webSearch
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-primary'
+                      }`}
+                    >
+                      🌐 联网搜索
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDataSource(prev => ({ ...prev, hotWords: !prev.hotWords }))}
+                      className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
+                        dataSource.hotWords
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-primary'
+                      }`}
+                    >
+                      🔥 小红书行业热点词
+                    </button>
+                  </div>
+                </div>
+
                 {/* AI 生成选题 */}
                 <div className="border-t pt-4 mt-4">
                   <div className="flex items-center gap-2 mb-3">
