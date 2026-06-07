@@ -437,18 +437,17 @@ export default function CreatePage() {
       <Header
         title="创作新笔记"
         rightContent={
-          <Select value={selectedAccountId || ''} onValueChange={selectAccount}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="选择账号" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-gray-500">发布账号：</span>
+            <span className="font-medium text-primary">
+              {selectedAccount?.name || '未选择'}
+            </span>
+            {selectedAccount?.xiaohongshuId && (
+              <span className="text-gray-400 text-xs">
+                小红书 ID: {selectedAccount.xiaohongshuId}
+              </span>
+            )}
+          </div>
         }
       />
 
