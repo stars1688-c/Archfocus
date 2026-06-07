@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@/components/ui/modal'
+import { ScheduleModal } from '@/components/modals/ScheduleModal'
 import api from '@/lib/api'
 import type { Topic } from '@/lib/ai/types'
 
@@ -859,6 +860,14 @@ export default function CreatePage() {
               <Button onClick={handleSaveDraft} disabled={saving}>
                 立即发布
               </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="flex-1"
+                onClick={() => setShowScheduleModal(true)}
+              >
+                ⏰ 定时发布
+              </Button>
             </>
           )}
         </div>
@@ -1001,6 +1010,21 @@ export default function CreatePage() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* 定时发布 Modal */}
+      <ScheduleModal
+        open={showScheduleModal}
+        onOpenChange={setShowScheduleModal}
+        onSchedule={(schedule) => {
+          setSchedule({
+            enabled: true,
+            time: schedule.time,
+            emailReminder: schedule.emailReminder,
+            email: schedule.email
+          })
+        }}
+        defaultEmail={schedule.email}
+      />
     </>
   )
 }
