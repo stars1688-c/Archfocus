@@ -681,6 +681,38 @@ export default function CreatePage() {
                   {imageGenerating ? '生成中...' : '✨ 生成配图'}
                 </Button>
 
+                {/* 图片预览网格 */}
+                {generatedImages.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedImageIndex(index)}
+                        className={`aspect-[3/4] rounded-lg border-2 flex flex-col items-center justify-center transition-colors ${
+                          selectedImageIndex === index
+                            ? 'border-primary bg-primary-bg'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {generatedImages[index] ? (
+                          <img
+                            src={generatedImages[index]}
+                            alt={`图片 ${index + 1}`}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <>
+                            <span className="text-2xl mb-1">🖼️</span>
+                            <span className="text-xs text-gray-400">
+                              {index === 0 ? '封面图' : `图${index + 1}`}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {workflowError && (
                   <p className="text-red-500 text-sm">{workflowError}</p>
                 )}
