@@ -116,7 +116,8 @@ export default function CreatePage() {
           audience: selectedAccount.audience,
           description: selectedAccount.description,
         },
-        searchEnabled: true,
+        searchEnabled: dataSource.webSearch,
+        hotWordsEnabled: dataSource.hotWords,
         currentStep: 'topic_generation'
       })
 
@@ -225,6 +226,7 @@ export default function CreatePage() {
         },
         selectedTopic: title,
         searchEnabled: dataSource.webSearch,
+        hotWordsEnabled: dataSource.hotWords,
         userRequirements: writingRequirements,
         currentStep: 'content_generation'
       })
