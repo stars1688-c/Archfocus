@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  phone     String    @unique
+  password  String
+  name      String?
+  createdAt DateTime  @default(now())
+  accounts  Account[]
+}
+
+model Account {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  name          String
+  xiaohongshuId String?
+  email         String?
+  phone         String?
+  position      String
+  audience      String
+  description   String
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  notes         Note[]
+}
+
+model Note {
+  id            String    @id @default(cuid())
+  accountId     String
+  account       Account   @relation(fields: [accountId], references: [id])
+  title         String
+  content        String
+  images        String    @default("[]")
+  likes         Int       @default(0)
+  comments      Int       @default(0)
+  bookmarks     Int       @default(0)
+  shares        Int       @default(0)
+  status        String    @default("pending")
+  publishAt     DateTime?
+  publishedAt   DateTime?
+  xiaohongshuUrl String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model SyncConfig {
+  id           String    @id @default(cuid())
+  intervalDays Int       @default(1)
+  syncTime     String    @default("02:00")
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}

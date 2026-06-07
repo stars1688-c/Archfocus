@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArchFocus - 小红书AI运营助手</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #e8455c;
+    --primary-light: #ff6b81;
+    --primary-bg: #fff0f2;
+    --accent: #2d9cdb;
+    --accent-green: #27ae60;
+    --accent-orange: #f2994a;
+    --text: #1a1a2e;
+    --text-secondary: #6b7280;
+    --text-light: #9ca3af;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --sidebar-w: 220px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+  }
+  html { font-size: 14px; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  a { color: var(--primary); text-decoration: none; }
+  input, textarea, select, button { font-family: inherit; font-size: inherit; }
+
+  .hidden { display: none !important; }
+  .flex { display: flex; }
+  .flex-center { display: flex; align-items: center; justify-content: center; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .gap-16 { gap: 16px; }
+  .mt-8 { margin-top: 8px; }
+  .mt-16 { margin-top: 16px; }
+  .mt-24 { margin-top: 24px; }
+  .mb-8 { margin-bottom: 8px; }
+  .mb-16 { margin-bottom: 16px; }
+  .text-center { text-align: center; }
+  .text-secondary { color: var(--text-secondary); }
+  .text-sm { font-size: .857rem; }
+  .text-xs { font-size: .786rem; }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: .786rem; font-weight: 500;
+  }
+  .badge-red { background: var(--primary-bg); color: var(--primary); }
+  .badge-green { background: #e8f8ef; color: var(--accent-green); }
+  .badge-blue { background: #e8f4fd; color: var(--accent); }
+  .badge-orange { background: #fef3e8; color: var(--accent-orange); }
+  .badge-purple { background: #f3e8ff; color: #7c3aed; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 20px; border: none; border-radius: var(--radius-sm);
+    font-weight: 500; cursor: pointer; transition: all .2s; white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-ghost { background: transparent; color: var(--text-secondary); }
+  .btn-ghost:hover { background: var(--bg); color: var(--text); }
+  .btn-danger { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+  .btn-danger:hover { background: var(--primary); color: #fff; }
+  .btn-sm { padding: 5px 14px; font-size: .857rem; }
+  .btn-lg { padding: 12px 28px; font-size: 1rem; }
+  .btn-block { width: 100%; }
+  .btn-icon { width: 36px; height: 36px; padding: 0; border-radius: var(--radius-sm); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .auth-page {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #fff5f5 0%, #fef3e8 50%, #fff 100%);
+    padding: 20px;
+  }
+  .auth-card {
+    background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.08);
+    width: 100%; max-width: 400px; padding: 40px 32px 32px;
+  }
+  .auth-card .logo { text-align: center; margin-bottom: 32px; }
+  .auth-card .logo h1 { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+  .auth-card .logo p { color: var(--text-secondary); font-size: .857rem; margin-top: 4px; }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-weight: 500; margin-bottom: 6px; font-size: .857rem; color: var(--text-secondary); }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    outline: none; transition: border .2s; background: #fff;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(232,69,92,.1); }
+
+  .app-layout { display: flex; min-height: 100vh; width: 100%; background: var(--bg); }
+  .sidebar {
+    width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+    transition: transform .3s;
+  }
+  .sidebar-logo {
+    padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-logo .icon { width: 28px; height: 28px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: .9rem; }
+  .sidebar-logo h2 { font-size: 1rem; font-weight: 600; }
+  .sidebar-nav { flex: 1; padding: 12px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-sm);
+    cursor: pointer; color: var(--text-secondary); font-weight: 500; transition: all .15s; margin-bottom: 2px;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: var(--primary-bg); color: var(--primary); }
+  .nav-item .nav-icon { font-size: 1.2rem; width: 22px; text-align: center; }
+  .nav-item .nav-badge { margin-left: auto; }
+  .sidebar-footer {
+    padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-footer .avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--primary-bg); color: var(--primary);
+    display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: .857rem;
+  }
+  .sidebar-footer .user-info { flex: 1; }
+  .sidebar-footer .user-info .name { font-weight: 500; font-size: .857rem; }
+  .sidebar-footer .user-info .plan { font-size: .714rem; color: var(--text-light); }
+
+  .main-content {
+    margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh;
+    background: var(--bg);
+  }
+  .page-header {
+    padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 56px;
+  }
+  .page-header h1 { font-size: 1.3rem; font-weight: 600; }
+  .page-content { flex: 1; display: flex; flex-direction: column; width: 100%; }
+  .page-body { flex: 1; padding: 24px; overflow-y: auto; }
+
+  .account-select { min-width: 120px; }
+
+  .stats-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px; }
+  .stat-card { background: #fff; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .stat-card .label { font-size: .857rem; color: var(--text-secondary); margin-bottom: 4px; }
+  .stat-card .value { font-size: 1.6rem; font-weight: 700; }
+  .stat-card .change { font-size: .786rem; margin-top: 4px; }
+
+  .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-body { padding: 20px; }
+
+  .account-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .account-card { background: #fff; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); cursor: pointer; transition: all .2s; border: 1px solid transparent; }
+  .account-card:hover { border-color: var(--primary); box-shadow: 0 4px 12px rgba(232,69,92,.1); }
+  .account-card .avatar-lg {
+    width: 48px; height: 48px; border-radius: 50%; background: var(--primary-bg); color: var(--primary);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem;
+  }
+  .account-card .info { flex: 1; }
+  .account-card .info .name { font-weight: 600; }
+  .account-card .info .desc { font-size: .786rem; color: var(--text-secondary); }
+
+  .wizard { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .wizard-steps { display: flex; background: var(--bg); padding: 0; }
+  .wizard-step {
+    flex: 1; padding: 14px 16px; text-align: center; font-size: .857rem; font-weight: 500;
+    color: var(--text-light); position: relative; border-bottom: 3px solid transparent; transition: all .2s; cursor: default;
+  }
+  .wizard-step.clickable { cursor: pointer; }
+  .wizard-step.clickable:hover { background: #f0f0f3; }
+  .wizard-step.active { color: var(--primary); border-bottom-color: var(--primary); background: #fff; }
+  .wizard-step.done { color: var(--accent-green); }
+  .wizard-step .step-num {
+    display: inline-flex; width: 22px; height: 22px; border-radius: 50%;
+    align-items: center; justify-content: center; font-size: .786rem; margin-right: 6px;
+    background: var(--border); color: #fff;
+  }
+  .wizard-step.active .step-num { background: var(--primary); }
+  .wizard-step.done .step-num { background: var(--accent-green); }
+  .wizard-body { padding: 24px; }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px;
+    border-radius: 16px; font-size: .786rem; background: var(--bg); color: var(--text-secondary); cursor: pointer;
+    transition: all .15s; user-select: none;
+  }
+  .tag:hover { background: var(--border); }
+  .tag.selected { background: var(--primary-bg); color: var(--primary); }
+  .tag .remove { cursor: pointer; font-size: .9rem; line-height: 1; margin-left: 2px; }
+
+  .toggle-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .toggle-btn {
+    padding: 6px 16px; border: 1px solid var(--border); border-radius: 20px; background: #fff;
+    cursor: pointer; font-size: .857rem; color: var(--text-secondary); transition: all .15s;
+  }
+  .toggle-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .toggle-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .toggle-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .toggle-btn:disabled:hover { border-color: var(--border); color: var(--text-secondary); }
+
+  .review-box {
+    background: var(--bg); border-radius: var(--radius-sm); padding: 20px;
+    border-left: 3px solid var(--primary); margin: 16px 0;
+    white-space: pre-wrap; line-height: 1.8;
+  }
+  .review-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  .review-feedback textarea {
+    width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    min-height: 80px; resize: vertical; outline: none;
+  }
+  .review-feedback textarea:focus { border-color: var(--primary); }
+
+  .image-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .image-item {
+    aspect-ratio: 3/4; background: var(--bg); border-radius: var(--radius-sm);
+    overflow: hidden; position: relative; border: 2px solid transparent; cursor: pointer; transition: all .15s;
+  }
+  .image-item:hover { border-color: var(--primary); }
+  .image-item.selected { border-color: var(--primary); }
+  .image-item .placeholder {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4px; color: var(--text-light); font-size: .786rem;
+  }
+  .image-item .placeholder .big-icon { font-size: 2rem; }
+  .image-type-selector { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .image-type-btn {
+    padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    cursor: pointer; background: #fff; font-size: .857rem; transition: all .15s;
+  }
+  .image-type-btn:hover { border-color: var(--primary); }
+  .image-type-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  .schedule-picker { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .schedule-picker .form-group { margin-bottom: 0; }
+
+  .chart-area { height: 200px; background: var(--bg); border-radius: var(--radius-sm); margin: 12px 0; position: relative; overflow: hidden; }
+  .chart-area .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 100%; padding: 20px 16px 30px; }
+  .chart-area .bar { flex: 1; background: var(--primary-bg); border-radius: 4px 4px 0 0; position: relative; min-height: 4px; }
+  .chart-area .bar .bar-label { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: .714rem; color: var(--text-light); white-space: nowrap; }
+
+  .insight-card {
+    background: linear-gradient(135deg, var(--primary-bg), #fff); border: 1px solid rgba(232,69,92,.15);
+    border-radius: var(--radius-sm); padding: 16px; margin: 8px 0;
+  }
+  .insight-card .icon { font-size: 1.2rem; }
+  .insight-card h4 { font-size: .857rem; margin-bottom: 4px; }
+  .insight-card p { font-size: .786rem; color: var(--text-secondary); }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    animation: fadeIn .15s;
+  }
+  .modal { background: #fff; border-radius: var(--radius); max-width: 520px; width: 100%; max-height: 85vh; overflow-y: auto; }
+  .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-close { width: 32px; height: 32px; border: none; background: none; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: var(--text-secondary); }
+  .modal-close:hover { background: var(--bg); }
+  .modal-body { padding: 20px; }
+  .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; justify-content: flex-end; }
+
+  /* Toggle Switch */
+  .toggle-switch {
+    position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; cursor: pointer; inset: 0; background: var(--border); border-radius: 22px; transition: .2s;
+  }
+  .toggle-slider::before {
+    content: ""; position: absolute; height: 18px; width: 18px; left: 2px; bottom: 2px;
+    background: #fff; border-radius: 50%; transition: .2s;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+  /* No account placeholder */
+  .no-account-placeholder {
+    text-align: center; padding: 60px 20px; background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .no-account-placeholder .icon { font-size: 3rem; margin-bottom: 16px; }
+  .no-account-placeholder h3 { margin-bottom: 8px; }
+  .no-account-placeholder p { color: var(--text-secondary); font-size: .857rem; margin-bottom: 20px; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Analytics table */
+  .analytics-filter-bar {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+    background: #fff; border-radius: var(--radius); padding: 16px 20px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  .analytics-filter-bar .filter-group {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .analytics-filter-bar .filter-group label {
+    font-size: .786rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap;
+  }
+  .analytics-filter-bar input[type="date"],
+  .analytics-filter-bar input[type="number"] {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: .857rem; outline: none; background: #fff; max-width: 130px;
+  }
+  .analytics-filter-bar input:focus { border-color: var(--primary); }
+  .data-table { width: 100%; border-collapse: collapse; font-size: .857rem; }
+  .data-table thead { background: var(--bg); }
+  .data-table th {
+    padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text-secondary);
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  .data-table th.sortable { cursor: pointer; user-select: none; }
+  .data-table th.sortable:hover { color: var(--primary); }
+  .data-table th .sort-icon { font-size: .714rem; opacity: .4; margin-left: 2px; }
+  .data-table th.sort-asc .sort-icon,
+  .data-table th.sort-desc .sort-icon { opacity: 1; color: var(--primary); }
+  .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .data-table tbody tr:hover { background: #fafafa; }
+  .data-table .note-title { font-weight: 500; display: block; margin-bottom: 4px; color: var(--text); text-decoration: none; }
+  .data-table .note-title:hover { color: var(--primary); text-decoration: underline; }
+  .data-table .note-content-preview {
+    font-size: .786rem; color: var(--text-light);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; line-height: 1.5;
+  }
+
+  .mobile-nav { display: none; }
+  .hamburger { display: none; }
+
+  @media (max-width: 820px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 99; }
+    .sidebar-overlay.show { display: block; }
+    .main-content { margin-left: 0; }
+    .mobile-nav {
+      display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+      border-top: 1px solid var(--border); z-index: 90; padding: 4px 0;
+    }
+    .mobile-nav-item {
+      flex: 1; text-align: center; padding: 6px 4px; cursor: pointer; color: var(--text-light);
+      font-size: .643rem; transition: color .15s;
+    }
+    .mobile-nav-item.active { color: var(--primary); }
+    .mobile-nav-item .m-icon { font-size: 1.3rem; display: block; margin-bottom: 1px; }
+    .hamburger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: none; border: none; cursor: pointer; font-size: 1.3rem; }
+
+    .page-header { padding: 12px 16px; position: relative; }
+    .page-body { padding: 16px; padding-bottom: 72px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat-card { padding: 14px; }
+    .stat-card .value { font-size: 1.2rem; }
+    .account-grid { grid-template-columns: 1fr; }
+    .wizard-steps { overflow-x: auto; gap: 0; }
+    .wizard-step { padding: 10px 8px; font-size: .786rem; white-space: nowrap; }
+    .wizard-step .step-num { width: 18px; height: 18px; font-size: .714rem; }
+    .image-grid { grid-template-columns: repeat(3, 1fr); }
+    .auth-card { padding: 28px 20px 24px; }
+    .modal { margin: 10px; max-height: 90vh; }
+  }
+
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .review-actions { flex-direction: column; }
+    .schedule-picker { flex-direction: column; }
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .library-tab {
+    padding: 10px 20px; font-size: .857rem; font-weight: 500; cursor: pointer;
+    color: var(--text-secondary); border-bottom: 2px solid transparent;
+    margin-bottom: -2px; transition: all .15s; user-select: none;
+  }
+  .library-tab:hover { color: var(--text); }
+  .library-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .library-tab .badge { margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<!-- ==================== AUTH ==================== -->
+<div id="authPage" class="auth-page">
+  <div class="auth-card">
+    <div class="logo">
+      <h1>📌 ArchFocus</h1>
+      <p>小红书 AI 运营助手</p>
+    </div>
+    <div>
+      <div class="form-group"><label>手机号</label><input type="tel" placeholder="请输入手机号" value="138****8888"></div>
+      <div class="form-group"><label>密码</label><input type="password" placeholder="请输入密码" value="········"></div>
+      <button class="btn btn-primary btn-block btn-lg" onclick="login()">登 录</button>
+      <div style="margin-top:16px;text-align:center;font-size:.786rem;color:var(--text-light);">账号由管理员在后台创建，请联系管理员获取</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APP ==================== -->
+<div id="appPage" class="app-layout hidden">
+
+  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><div class="icon">AF</div><h2>ArchFocus</h2></div>
+    <nav class="sidebar-nav" id="sidebarNav">
+      <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')"><span class="nav-icon">📊</span> 工作台</div>
+      <div class="nav-item" data-page="create" onclick="navigateTo('create')"><span class="nav-icon">✍️</span> 创作</div>
+      <div class="nav-item" data-page="drafts" onclick="navigateTo('drafts')"><span class="nav-icon">📋</span> 笔记库</div>
+      <div class="nav-item" data-page="analytics" onclick="navigateTo('analytics')"><span class="nav-icon">📈</span> 数据分析</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="avatar">Y</div>
+      <div class="user-info"><div class="name">鱼鱼博主</div><div class="plan">个人版 · 剩余 28 天</div></div>
+      <button class="btn btn-ghost btn-icon" onclick="alert('退出登录')" title="退出">↩</button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div id="page-dashboard" class="page-content">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h1>工作台</h1>
+        </div>
+        <div></div>
+      </div>
+      <div class="page-body">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="label">当月已发布</div><div class="value">12</div><div class="change text-sm text-secondary">本月已发布笔记数</div></div>
+          <div class="stat-card"><div class="label">当月待发布</div><div class="value">5</div><div class="change text-sm text-secondary">待发布 / 待审核</div></div>
+        </div>
+
+        <!-- Account Management -->
+        <div style="margin-bottom:16px;">
+          <div class="card-header" style="padding:16px 20px;border-bottom:1px solid var(--border);">
+            <span>👤 账户管理</span>
+            <button class="btn btn-primary btn-sm" onclick="openAccountModal()">+ 添加账号</button>
+          </div>
+          <div style="padding:20px;">
+            <div class="account-grid">
+              <div class="account-card" data-name="美妆小魚 🎀" onclick="openAccountModal('美妆小魚 🎀')">
+                <div class="flex gap-12">
+                  <div class="avatar-lg" style="background:#fce4ec;color:#e91e63;">魚</div>
+                  <div class="info"><div class="name">美妆小魚 🎀</div><div class="desc">小红书 ID: meizhuang_xiaoyu</div></div>
+                </div>
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;"><span class="text-sm text-secondary">待发布 3</span><span class="badge badge-blue">绑定账户</span></div>
+              </div>
+              <div class="account-card" data-name="鱼鱼的衣橱 👗" onclick="openAccountModal('鱼鱼的衣橱 👗')">
+                <div class="flex gap-12">
+                  <div class="avatar-lg" style="background:#e8f5e9;color:#4caf50;">衣</div>
+                  <div class="info"><div class="name">鱼鱼的衣橱 👗</div><div class="desc">小红书 ID: yuyu_wardrobe</div></div>
+                </div>
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;"><span class="text-sm text-secondary">待发布 1</span><span class="badge badge-blue">绑定账户</span></div>
+              </div>
+              <div class="account-card" data-name="小魚爱生活 🏠" onclick="openAccountModal('小魚爱生活 🏠')">
+                <div class="flex gap-12">
+                  <div class="avatar-lg" style="background:#fff3e0;color:#ff9800;">爱</div>
+                  <div class="info"><div class="name">小魚爱生活 🏠</div><div class="desc">小红书 ID: xiaoyu_life</div></div>
+                </div>
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;"><span class="text-sm text-secondary">待发布 0</span><span class="badge badge-orange">待绑账户</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-header"><span>📌 快捷操作</span></div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+              <button class="btn btn-primary" onclick="navigateTo('create')">✍️ 开始创作新笔记</button>
+              <button class="btn btn-outline" onclick="navigateTo('analytics')">📈 查看数据分析</button>
+              <button class="btn btn-outline" onclick="document.getElementById('syncModal').classList.remove('hidden')">🔄 同步笔记数据</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CREATE ===== -->
+    <div id="page-create" class="page-content hidden">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h1>创作新笔记</h1>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="create-account-header" class="account-select" onchange="onCreateAccountChange(this)" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.857rem;">
+            <option value="美妆小魚 🎀">美妆小魚 🎀</option>
+            <option value="鱼鱼的衣橱 👗">鱼鱼的衣橱 👗</option>
+            <option value="小魚爱生活 🏠">小魚爱生活 🏠</option>
+          </select>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="wizard">
+          <!-- Wizard steps: 选题 → 文案(含审核) → 配图 → 发布 -->
+          <div class="wizard-steps">
+            <div class="wizard-step active" id="ws-1"><span class="step-num">1</span>选题</div>
+            <div class="wizard-step" id="ws-2"><span class="step-num">2</span>文案</div>
+            <div class="wizard-step" id="ws-3"><span class="step-num">3</span>配图</div>
+            <div class="wizard-step" id="ws-4"><span class="step-num">4</span>发布</div>
+          </div>
+
+          <!-- Step 1: Topic -->
+          <div class="wizard-body" id="ws-body-1">
+            <div class="form-group">
+              <label>发布账号</label>
+              <div style="padding:10px 14px;background:var(--bg);border-radius:var(--radius-sm);font-weight:500;">
+                <span id="topic-account-display">美妆小魚 🎀</span>
+                <span class="text-xs text-secondary" style="margin-left:8px;">小红书 ID: meizhuang_xiaoyu</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>数据源（可多选）</label>
+              <div class="toggle-group">
+                <span class="toggle-btn active" onclick="toggleBtn(this)">🌐 联网搜索</span>
+                <span class="toggle-btn" onclick="toggleBtn(this)">🔥 小红书行业热点词</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>主题输入方式</label>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="generateTopics()">🤖 AI 推荐主题</button>
+                <span style="color:var(--text-light);line-height:36px;">或</span>
+                <input id="manualTopicInput" style="flex:1;min-width:200px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);" placeholder="手动输入笔记主题...">
+              </div>
+            </div>
+            <div id="topicsResult" class="hidden" style="margin-top:16px;">
+              <label style="font-weight:500;display:block;margin-bottom:8px;">推荐主题（点击选择）</label>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <div class="card" style="cursor:pointer;padding:14px 16px;border:2px solid transparent;" onclick="selectTopic(this)">
+                  <div style="font-weight:500;">🌞 夏日持妆大法！油皮也能 hold 住一整天</div>
+                  <div style="font-size:.786rem;color:var(--text-secondary);margin-top:4px;">基于热点"夏季化妆" + 你的人设"美妆"</div>
+                </div>
+                <div class="card" style="cursor:pointer;padding:14px 16px;border:2px solid transparent;" onclick="selectTopic(this)">
+                  <div style="font-weight:500;">💸 百元以内学生党彩妆红黑榜</div>
+                  <div style="font-size:.786rem;color:var(--text-secondary);margin-top:4px;">基于热点"平价彩妆" + 你的人设"学生党"</div>
+                </div>
+                <div class="card" style="cursor:pointer;padding:14px 16px;border:2px solid transparent;" onclick="selectTopic(this)">
+                  <div style="font-weight:500;">✨ 早八人5分钟快速出门妆容教程</div>
+                  <div style="font-size:.786rem;color:var(--text-secondary);margin-top:4px;">联网搜索 + 小红书行业热点综合</div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:12px;">
+              <button class="btn btn-primary" onclick="nextWizardStep(2)">下一步：写文案 →</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Copywriting (merged with review) -->
+          <div class="wizard-body hidden" id="ws-body-2">
+            <div class="form-group">
+              <label>选择文案模型</label>
+              <div class="toggle-group">
+                <span class="toggle-btn" onclick="selectModel(this)">Kimi</span>
+                <span class="toggle-btn active" onclick="selectModel(this)">MiniMax</span>
+                <span class="toggle-btn" onclick="selectModel(this)">DeepSeek</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>选题</label>
+              <input style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);" id="copyTopicDisplay" value="夏日持妆大法！油皮也能 hold 住一整天" readonly>
+            </div>
+            <div class="form-group">
+              <label>写作要求（可选）</label>
+              <textarea id="writingReq" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);min-height:60px;resize:vertical;" placeholder="可以补充语气风格、字数要求、关键词等..."></textarea>
+              <div class="text-xs text-secondary" style="margin-top:4px;">💡 可以直接在AI生成的文案进行修改</div>
+            </div>
+            <button class="btn btn-primary" onclick="generateCopy()">🚀 生成文案</button>
+
+            <div id="copyResult" class="hidden" style="margin-top:16px;">
+              <div class="text-sm text-secondary" style="margin-bottom:8px;">
+                <span class="badge badge-green">✅ 去重通过</span>
+                <span class="badge badge-green">✅ 敏感词检测通过</span>
+              </div>
+              <!-- Inline editable text area -->
+              <div
+                id="editableCopy"
+                contenteditable="true"
+                style="background:var(--bg);border-radius:var(--radius-sm);padding:20px;border-left:3px solid var(--primary);line-height:1.8;white-space:pre-wrap;outline:none;min-height:200px;"
+              >夏日炎炎，油皮姐妹是不是又在为脱妆发愁了？😭
+
+今天教大家几招夏日持妆秘诀，亲测有效！
+
+1️⃣ 妆前打底是关键 — 控油妆前乳+T区局部定妆
+2️⃣ 粉底选对不选贵 — 油皮亲妈粉底液推荐（图里有清单）
+3️⃣ 烘焙定妆法 YYDS！散粉厚敷3分钟，扫掉后雾面一整天
+4️⃣ 随身带吸油纸+蜜粉饼，补妆不卡粉
+
+跟着我做，夏天也能拥有清透底妆！💕
+
+#夏日持妆 #油皮救星 #化妆教程 #美妆好物</div>
+              <div class="text-xs text-secondary" style="margin-top:4px;">💡 可直接点击文案内容进行修改</div>
+
+              <div class="review-actions" style="margin-top:16px;">
+                <button class="btn btn-primary" onclick="nextWizardStep(3)">✅ 通过，去配图</button>
+                <button class="btn btn-ghost" style="color:var(--accent-orange);" onclick="openRegenModal()">🔄 重新生成</button>
+              </div>
+            </div>
+            <div style="margin-top:24px;display:flex;justify-content:space-between;">
+              <button class="btn btn-outline" onclick="prevWizardStep(1)">← 上一步</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Image Generation (AI prompt OR HTML→截图) -->
+          <div class="wizard-body hidden" id="ws-body-3">
+            <div class="form-group">
+              <label>配图类型</label>
+              <div class="image-type-selector">
+                <span class="image-type-btn active" onclick="selectImageType(this)">🎨 AI+提示词</span>
+                <span class="image-type-btn" onclick="selectImageType(this)">📄 HTML→截图</span>
+              </div>
+            </div>
+
+            <!-- AI+提示词 section -->
+            <div id="image-prompt-group">
+              <div class="form-group">
+                <label>AI 生图提示词 <span class="text-xs text-secondary">— 确认后再生成图片</span></label>
+                <textarea id="imagePrompt" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);min-height:100px;resize:vertical;" placeholder="AI 根据文案自动生成的提示词，你可以在此修改...">持妆粉底液产品图，夏日清透底妆，油皮适用，柔和自然光线，电商产品摄影风格，浅色背景，干净清爽，4k画质</textarea>
+                <div class="text-xs text-secondary" style="margin-top:4px;">💡 修改提示词后点击「生成配图」开始生图</div>
+              </div>
+
+              <div class="form-group" id="image-model-group">
+                <label>选择绘图模型</label>
+                <div class="toggle-group">
+                  <span class="toggle-btn active" onclick="selectModel(this)">Image 2.0</span>
+                  <span class="toggle-btn" onclick="selectModel(this)">Seedream</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>生图数量</label>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <input type="number" value="1" min="1" max="9" style="width:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);text-align:center;">
+                  <span class="text-sm text-secondary">张（封面尺寸 3:4）</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- HTML→截图 section -->
+            <div id="image-html-group" class="hidden">
+              <div class="form-group">
+                <label>笔记内容 <span class="text-xs text-secondary">— 将自动渲染为图文卡片</span></label>
+                <div id="htmlContentPreview" style="background:var(--bg);border-radius:var(--radius-sm);padding:14px;border:1px solid var(--border);line-height:1.8;white-space:pre-wrap;font-size:.857rem;max-height:150px;overflow-y:auto;color:var(--text);">夏日炎炎，油皮姐妹是不是又在为脱妆发愁了？😭
+
+今天教大家几招夏日持妆秘诀，亲测有效！</div>
+              </div>
+              <div class="form-group">
+                <label>HTML 风格 <span class="text-xs text-secondary">— 选择排版配色风格</span></label>
+                <div class="toggle-group" id="html-style-group">
+                  <span class="toggle-btn active" onclick="selectHtmlStyle(this)">📰 杂志风</span>
+                  <span class="toggle-btn" onclick="selectHtmlStyle(this)">☕ 奶油暖调</span>
+                  <span class="toggle-btn" onclick="selectHtmlStyle(this)">🌲 森林绿</span>
+                  <span class="toggle-btn" onclick="selectHtmlStyle(this)">💠 瑞士极简</span>
+                  <span class="toggle-btn" onclick="selectHtmlStyle(this)">🎨 多巴胺</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>预计生成 <span style="color:var(--accent-orange);font-weight:500;" id="htmlImageCount">约 3 张</span></label>
+                <div class="text-xs text-secondary">基于笔记内容长度自动分页，确认后生成</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:16px;display:flex;gap:12px;">
+              <button class="btn btn-primary btn-sm" onclick="generateImages()">🎨 生成配图</button>
+              <button class="btn btn-outline btn-sm" onclick="alert('配图已重新生成')">🔄 重新生成</button>
+            </div>
+
+            <div class="image-grid" id="imageGrid">
+              <div class="image-item selected"><div class="placeholder"><div class="big-icon">🖼️</div><span>封面图</span></div></div>
+              <div class="image-item"><div class="placeholder"><div class="big-icon">🖼️</div><span>图2</span></div></div>
+              <div class="image-item"><div class="placeholder"><div class="big-icon">🖼️</div><span>图3</span></div></div>
+              <div class="image-item"><div class="placeholder"><div class="big-icon">🖼️</div><span>图4</span></div></div>
+              <div class="image-item"><div class="placeholder"><div class="big-icon">🖼️</div><span>图5</span></div></div>
+              <div class="image-item"><div class="placeholder"><div class="big-icon">🖼️</div><span>图6</span></div></div>
+            </div>
+
+            <div style="margin-top:16px;display:flex;gap:12px;">
+              <button class="btn btn-primary" onclick="nextWizardStep(4)">✅ 配图确认，下一步 →</button>
+            </div>
+            <div style="margin-top:12px;display:flex;justify-content:space-between;">
+              <button class="btn btn-outline" onclick="prevWizardStep(2)">← 上一步</button>
+            </div>
+          </div>
+
+          <!-- Step 4: Publish confirmation -->
+          <div class="wizard-body hidden" id="ws-body-4">
+            <h3 style="margin-bottom:16px;">📋 发布确认</h3>
+
+            <!-- 笔记标题 -->
+            <div class="form-group">
+              <label>笔记标题</label>
+              <div style="display:flex;gap:8px;">
+                <input id="publishTitle" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);" value="夏日持妆大法！油皮也能 hold 住一整天" readonly>
+                <button class="btn btn-outline btn-sm" onclick="copyText(document.getElementById('publishTitle').value)">📋 复制</button>
+              </div>
+            </div>
+
+            <!-- 笔记内容 -->
+            <div class="form-group">
+              <label>笔记内容</label>
+              <div style="display:flex;gap:8px;align-items:flex-start;">
+                <div id="publishContent" style="flex:1;background:var(--bg);border-radius:var(--radius-sm);padding:14px;border:1px solid var(--border);line-height:1.8;white-space:pre-wrap;font-size:.857rem;max-height:180px;overflow-y:auto;color:var(--text);">夏日炎炎，油皮姐妹是不是又在为脱妆发愁了？😭
+
+今天教大家几招夏日持妆秘诀，亲测有效！</div>
+                <button class="btn btn-outline btn-sm" style="flex-shrink:0;" onclick="copyText(document.getElementById('publishContent').textContent)">📋 复制</button>
+              </div>
+            </div>
+
+            <!-- 笔记配图 -->
+            <div class="form-group">
+              <label>笔记配图 <span class="text-xs text-secondary">（6张，点击 📋 复制单张图片）</span></label>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+                  <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">封面</div>
+                  <span class="text-sm" style="flex:1;color:var(--text-secondary);">夏日持妆封面图</span>
+                  <button class="btn btn-outline btn-sm" onclick="copyText('夏日持妆封面图')">📋 复制</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+                  <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图2</div>
+                  <span class="text-sm" style="flex:1;color:var(--text-secondary);">持妆步骤配图</span>
+                  <button class="btn btn-outline btn-sm" onclick="copyText('持妆步骤配图')">📋 复制</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+                  <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图3</div>
+                  <span class="text-sm" style="flex:1;color:var(--text-secondary);">产品推荐配图</span>
+                  <button class="btn btn-outline btn-sm" onclick="copyText('产品推荐配图')">📋 复制</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+                  <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图4</div>
+                  <span class="text-sm" style="flex:1;color:var(--text-secondary);">对比效果配图</span>
+                  <button class="btn btn-outline btn-sm" onclick="copyText('对比效果配图')">📋 复制</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+                  <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图5</div>
+                  <span class="text-sm" style="flex:1;color:var(--text-secondary);">使用前后对比</span>
+                  <button class="btn btn-outline btn-sm" onclick="copyText('使用前后对比')">📋 复制</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+                  <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图6</div>
+                  <span class="text-sm" style="flex:1;color:var(--text-secondary);;">结尾引导关注图</span>
+                  <button class="btn btn-outline btn-sm" onclick="copyText('结尾引导关注图')">📋 复制</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-lg" style="flex:1;min-width:160px;" onclick="alert('✅ 笔记已发布！'); navigateTo('dashboard')">🚀 立即发布</button>
+              <button class="btn btn-outline btn-lg" style="flex:1;min-width:160px;" onclick="openScheduleModal()">⏰ 定时发布</button>
+            </div>
+
+            <div style="margin-top:16px;text-align:center;">
+              <button class="btn btn-ghost" onclick="prevWizardStep(3)">← 上一步修改</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== NOTE LIBRARY ===== -->
+    <div id="page-drafts" class="page-content hidden">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h1>笔记库</h1>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="library-account-filter" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.857rem;" onchange="onLibraryAccountChange()">
+            <option value="all">全部账号</option>
+            <option value="美妆小魚 🎀">美妆小魚 🎀</option>
+            <option value="鱼鱼的衣橱 👗">鱼鱼的衣橱 👗</option>
+            <option value="小魚爱生活 🏠">小魚爱生活 🏠</option>
+          </select>
+        </div>
+      </div>
+      <div class="page-body">
+        <!-- Tabs -->
+        <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);">
+          <div class="library-tab active" data-tab="pending" onclick="switchLibraryTab('pending')">待发布 <span class="badge badge-orange"></span></div>
+          <div class="library-tab" data-tab="published" onclick="switchLibraryTab('published')">已发布 <span class="badge badge-green"></span></div>
+        </div>
+        <!-- List containers -->
+        <div id="library-pending"></div>
+        <div id="library-published" class="hidden"></div>
+        <!-- Pagination -->
+        <div id="library-pagination"></div>
+      </div>
+    </div>
+
+
+    <!-- ===== ANALYTICS ===== -->
+    <div id="page-analytics" class="page-content hidden">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px;"><button class="hamburger" onclick="toggleSidebar()">☰</button><h1>数据分析</h1></div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="analytics-account-header" class="account-select" onchange="onAnalyticsAccountChange(this)" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.857rem;">
+            <option value="美妆小魚 🎀">美妆小魚 🎀</option>
+            <option value="鱼鱼的衣橱 👗">鱼鱼的衣橱 👗</option>
+            <option value="小魚爱生活 🏠">小魚爱生活 🏠</option>
+          </select>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('syncModal').classList.remove('hidden')">🔄 同步数据</button>
+            <span id="syncCountdownDisplay" class="text-xs text-secondary" style="white-space:nowrap;">下次同步：--</span>
+          </div>
+        </div>
+      </div>
+      <div class="page-body">
+        <!-- Filter Bar -->
+        <div class="analytics-filter-bar">
+          <div class="filter-group">
+            <label>时间范围</label>
+            <input type="date" id="filterDateStart" onchange="renderAnalyticsTable()">
+            <span style="color:var(--text-light);font-size:.786rem;">至</span>
+            <input type="date" id="filterDateEnd" onchange="renderAnalyticsTable()">
+          </div>
+          <div class="filter-group">
+            <label>点赞量</label>
+            <input type="number" id="filterLikesMin" placeholder="最小" min="0" oninput="renderAnalyticsTable()">
+            <span style="color:var(--text-light);font-size:.786rem;">-</span>
+            <input type="number" id="filterLikesMax" placeholder="最大" min="0" oninput="renderAnalyticsTable()">
+          </div>
+          <div class="filter-group">
+            <label>收藏量</label>
+            <input type="number" id="filterBookmarksMin" placeholder="最小" min="0" oninput="renderAnalyticsTable()">
+            <span style="color:var(--text-light);font-size:.786rem;">-</span>
+            <input type="number" id="filterBookmarksMax" placeholder="最大" min="0" oninput="renderAnalyticsTable()">
+          </div>
+          <div class="filter-group">
+            <label>评论量</label>
+            <input type="number" id="filterCommentsMin" placeholder="最小" min="0" oninput="renderAnalyticsTable()">
+            <span style="color:var(--text-light);font-size:.786rem;">-</span>
+            <input type="number" id="filterCommentsMax" placeholder="最大" min="0" oninput="renderAnalyticsTable()">
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="resetAnalyticsFilters()">重置</button>
+          <button class="btn btn-primary btn-sm" onclick="exportAnalyticsCSV()" style="margin-left:auto;">📥 导出 CSV</button>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card" style="overflow:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:32%;">笔记标题 / 内容</th>
+                <th style="width:6%;text-align:center;">配图</th>
+                <th class="sortable" onclick="sortAnalytics('likes')" style="width:12%;">点赞 <span class="sort-icon">⇅</span></th>
+                <th class="sortable" onclick="sortAnalytics('comments')" style="width:12%;">评论 <span class="sort-icon">⇅</span></th>
+                <th class="sortable" onclick="sortAnalytics('bookmarks')" style="width:12%;">收藏 <span class="sort-icon">⇅</span></th>
+                <th class="sortable" onclick="sortAnalytics('shares')" style="width:12%;">转发 <span class="sort-icon">⇅</span></th>
+                <th style="width:14%;">发布时间</th>
+              </tr>
+            </thead>
+            <tbody id="analyticsTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div id="analyticsPagination" style="display:flex;align-items:center;justify-content:center;gap:16px;padding:16px 0;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Nav -->
+  <nav class="mobile-nav">
+    <div class="mobile-nav-item active" onclick="navigateTo('dashboard')"><span class="m-icon">📊</span>工作台</div>
+    <div class="mobile-nav-item" onclick="navigateTo('create')"><span class="m-icon">✍️</span>创作</div>
+    <div class="mobile-nav-item" onclick="navigateTo('drafts')"><span class="m-icon">📋</span>笔记库</div>
+    <div class="mobile-nav-item" onclick="navigateTo('analytics')"><span class="m-icon">📈</span>数据</div>
+  </nav>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Add / Edit Account -->
+<div id="accountModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3 id="accountModalTitle">添加小红书账号</h3><button class="modal-close" onclick="closeModal('accountModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>小红书账号名称 <span style="color:var(--primary);">*</span></label><input id="acctName" placeholder="如：美妆小魚" required></div>
+      <div class="form-group"><label>小红书 ID <span class="text-xs text-secondary">（选填）</span> <a href="javascript:void(0)" onclick="document.getElementById('idGuideModal').classList.remove('hidden')" style="font-weight:400;font-size:.786rem;color:var(--accent);text-decoration:underline;cursor:pointer;">查看方式</a></label><input id="acctId" placeholder="如：meizhuang_xiaoyu"></div>
+      <div class="form-group"><label>联系邮箱 <span class="text-xs text-secondary">（选填，用于邮件提醒）</span></label><input id="acctEmail" type="email" placeholder="如：yuyu@example.com"></div>
+      <div class="form-group"><label>手机号 <span class="text-xs text-secondary">（选填，用于短信提醒）</span></label><input id="acctPhone" type="tel" placeholder="如：138****8888"></div>
+      <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:12px;">
+        <span style="font-weight:500;font-size:.857rem;color:var(--text-secondary);">人设设定</span>
+      </div>
+      <div class="form-group"><label>账号定位（一句话） <span style="color:var(--primary);">*</span></label><input id="acctPosition" placeholder="如：专注分享学生党平价美妆好物"></div>
+      <div class="form-group"><label>目标受众 <span style="color:var(--primary);">*</span></label><input id="acctAudience" placeholder="如：18-25岁学生党"></div>
+      <div class="form-group">
+        <label>人设详细描述 <span style="color:var(--primary);">*</span> <span class="text-xs text-secondary" id="acctCharCount">(0/1000)</span></label>
+        <textarea id="acctDescription" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);min-height:120px;resize:vertical;" maxlength="1000" oninput="updateAcctCharCount(this)" placeholder="描述这个账号的语气风格、内容方向..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer flex-between">
+      <div><button id="deleteAccountBtn" class="btn btn-danger btn-sm hidden" onclick="deleteAccount()">删除账号</button></div>
+      <div class="flex gap-8"><button class="btn btn-outline" onclick="closeModal('accountModal')">取消</button><button class="btn btn-primary" onclick="saveAccount()">确认</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ID Guide Modal -->
+<div id="idGuideModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header"><h3>🔍 获取小红书用户 ID</h3><button class="modal-close" onclick="closeModal('idGuideModal')">✕</button></div>
+    <div class="modal-body">
+      <div style="margin-bottom:20px;">
+        <div style="font-weight:600;margin-bottom:8px;color:var(--accent);">方法一：从用户主页URL获取</div>
+        <ol style="padding-left:20px;line-height:2;font-size:.857rem;color:var(--text-secondary);">
+          <li>打开小红书网页版：<a href="https://www.xiaohongshu.com" target="_blank" rel="noopener" style="color:var(--accent);">https://www.xiaohongshu.com</a></li>
+          <li>搜索并进入目标用户主页</li>
+          <li>查看浏览器地址栏，URL格式如下：<br>
+            <code style="display:inline-block;background:var(--bg);padding:6px 10px;border-radius:4px;margin-top:4px;font-size:.786rem;word-break:break-all;">https://www.xiaohongshu.com/user/profile/<span style="color:var(--primary);font-weight:600;">5ff0e6410000000001005f1a</span></code>
+          </li>
+          <li>提取用户ID：URL中 <code style="background:var(--bg);padding:1px 6px;border-radius:3px;">/user/profile/</code> 后面的字符串就是用户ID<br>
+            <span style="color:var(--primary);font-weight:500;">示例：5ff0e6410000000001005f1a</span>
+          </li>
+        </ol>
+      </div>
+      <div>
+        <div style="font-weight:600;margin-bottom:8px;color:var(--accent);">方法二：从手机分享链接获取</div>
+        <ol style="padding-left:20px;line-height:2;font-size:.857rem;color:var(--text-secondary);">
+          <li>在小红书 APP 中打开用户主页</li>
+          <li>点击分享按钮，选择"复制链接"</li>
+          <li>分享链接格式通常为：<br>
+            <code style="display:inline-block;background:var(--bg);padding:6px 10px;border-radius:4px;margin-top:4px;font-size:.786rem;word-break:break-all;">https://www.xiaohongshu.com/user/profile/<span style="color:var(--primary);font-weight:600;">5ff0e6410000000001005f1a</span>?xhsshare=xxx</code>
+          </li>
+          <li>提取用户ID：<code style="background:var(--bg);padding:1px 6px;border-radius:3px;">/user/profile/</code> 后面 <code style="background:var(--bg);padding:1px 6px;border-radius:3px;">?</code> 前面的部分</li>
+        </ol>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('idGuideModal')">知道了</button></div>
+  </div>
+</div>
+
+<!-- IMA -->
+<!-- Sync -->
+<div id="syncModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3>🔄 同步笔记数据</h3><button class="modal-close" onclick="closeModal('syncModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>数据来源</label><select><option>TikOmni API</option></select></div>
+      <div class="form-group"><label>同步账号</label>
+        <select><option>全部账号</option><option>美妆小魚 🎀</option><option>鱼鱼的衣橱 👗</option><option>小魚爱生活 🏠</option></select>
+      </div>
+      <div style="background:var(--bg);border-radius:var(--radius-sm);padding:16px;">
+        <div class="flex-between" style="margin-bottom:12px;">
+          <span class="text-sm" style="font-weight:500;">固定时间间隔</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" id="syncInterval" value="1" min="1" max="30" style="width:60px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);text-align:center;">
+            <span class="text-sm text-secondary">天</span>
+          </div>
+        </div>
+        <div class="flex-between">
+          <span class="text-sm" style="font-weight:500;">每天同步时间</span>
+          <input type="time" id="syncTimeOfDay" value="02:00" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('syncModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('syncModal');startSyncCountdown();alert('✅ 同步设置已保存')">确认</button>
+      <button class="btn btn-ghost" style="color:var(--accent);" onclick="closeModal('syncModal');alert('🔄 手动同步已触发')">🔁 手动同步</button>
+    </div>
+  </div>
+</div>
+
+<!-- Regenerate Feedback Modal -->
+<div id="regenModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3>🔄 重新生成文案</h3><button class="modal-close" onclick="closeModal('regenModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>修改意见 <span style="color:var(--primary);">*</span></label>
+        <textarea id="regenFeedback" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);min-height:120px;resize:vertical;" placeholder="请描述你希望如何修改，比如：语气更活泼一些、增加产品对比、缩短到300字以内..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('regenModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('regenModal');alert('🔄 正在根据你的意见重新生成文案...')">确认重新生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Publish Modal -->
+<div id="scheduleModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3>⏰ 定时发布</h3><button class="modal-close" onclick="closeModal('scheduleModal')">✕</button></div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px;">
+        <label style="font-weight:500;display:block;margin-bottom:8px;font-size:.857rem;">快捷选择</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="toggle-btn" onclick="selectQuickSchedule(this, 'tomorrow')">明天晚上7点</button>
+          <button class="toggle-btn" onclick="selectQuickSchedule(this, 'dayafter')">后天晚上7点</button>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:16px;">
+        <label style="font-weight:500;display:block;margin-bottom:8px;font-size:.857rem;">自定义时间</label>
+        <div class="schedule-picker">
+          <div class="form-group"><label class="text-sm">日期</label><input id="scheduleDate" type="date"></div>
+          <div class="form-group"><label class="text-sm">时间</label><input id="scheduleTime" type="time" value="19:00"></div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px;">
+        <label style="display:flex;align-items:center;gap:10px;font-size:.857rem;">
+          <span>提前10分钟邮件提醒</span>
+          <label class="toggle-switch"><input type="checkbox" checked onchange="document.getElementById('schedule-email-group').style.display = this.checked ? 'block' : 'none'"><span class="toggle-slider"></span></label>
+        </label>
+        <div id="schedule-email-group" style="margin-top:8px;">
+          <input type="email" value="yuyu@example.com" placeholder="接收提醒的邮箱" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('scheduleModal')">取消</button>
+      <button class="btn btn-primary" onclick="confirmSchedule()">确认定时</button>
+    </div>
+  </div>
+</div>
+
+<!-- Note Detail Modal -->
+<div id="noteDetailModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header"><h3>📄 笔记详情</h3><button class="modal-close" onclick="closeModal('noteDetailModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>发布账户</label><div id="detailAccount" style="padding:10px 14px;background:var(--bg);border-radius:var(--radius-sm);font-weight:500;"></div></div>
+      <div class="form-group">
+        <label>标题</label>
+        <div style="display:flex;gap:8px;">
+          <input id="detailTitle" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);" readonly>
+          <button class="btn btn-outline btn-sm" onclick="copyText(document.getElementById('detailTitle').value)">📋 复制</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>笔记内容</label>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <div id="detailContent" style="flex:1;background:var(--bg);border-radius:var(--radius-sm);padding:14px;border:1px solid var(--border);line-height:1.8;white-space:pre-wrap;font-size:.857rem;max-height:200px;overflow-y:auto;color:var(--text);"></div>
+          <button class="btn btn-outline btn-sm" style="flex-shrink:0;" onclick="copyText(document.getElementById('detailContent').textContent)">📋 复制</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>配图 <span class="text-xs text-secondary" id="detailImageCount">（6张）</span></label>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+            <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">封面</div>
+            <span class="text-sm" style="flex:1;color:var(--text-secondary);">封面图</span>
+            <button class="btn btn-outline btn-sm" onclick="copyText('封面图')">📋 复制</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+            <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图2</div>
+            <span class="text-sm" style="flex:1;color:var(--text-secondary);">步骤配图</span>
+            <button class="btn btn-outline btn-sm" onclick="copyText('步骤配图')">📋 复制</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+            <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图3</div>
+            <span class="text-sm" style="flex:1;color:var(--text-secondary);">产品推荐</span>
+            <button class="btn btn-outline btn-sm" onclick="copyText('产品推荐')">📋 复制</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+            <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图4</div>
+            <span class="text-sm" style="flex:1;color:var(--text-secondary);">对比效果</span>
+            <button class="btn btn-outline btn-sm" onclick="copyText('对比效果')">📋 复制</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+            <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图5</div>
+            <span class="text-sm" style="flex:1;color:var(--text-secondary);;">使用对比</span>
+            <button class="btn btn-outline btn-sm" onclick="copyText('使用对比')">📋 复制</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:var(--radius-sm);">
+            <div style="width:36px;height:48px;background:#fff;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.643rem;color:var(--text-light);flex-shrink:0;">图6</div>
+            <span class="text-sm" style="flex:1;color:var(--text-secondary);">引导关注</span>
+            <button class="btn btn-outline btn-sm" onclick="copyText('引导关注')">📋 复制</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('noteDetailModal')">关闭</button></div>
+  </div>
+</div>
+
+<script>
+  // Auth
+  function login() {
+    document.getElementById('authPage').classList.add('hidden');
+    document.getElementById('appPage').classList.remove('hidden');
+  }
+
+  // Navigation
+  function navigateTo(page) {
+    document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+    document.getElementById('page-' + page).classList.remove('hidden');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+    document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.mobile-nav-item').forEach((n, i) => {
+      const pages = ['dashboard','create','drafts','analytics'];
+      if (pages[i] === page) n.classList.add('active');
+    });
+    syncAccountSelects();
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('show');
+  }
+
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('show');
+  }
+
+  // Account tracking - remembers last selection across pages
+  let currentAccount = '美妆小魚 🎀';
+
+  // Sync all account selects to currentAccount
+  function syncAccountSelects() {
+    document.querySelectorAll('.account-select').forEach(s => { s.value = currentAccount; });
+    // Update create page account display
+    const topicDisplay = document.getElementById('topic-account-display');
+    if (topicDisplay) topicDisplay.textContent = currentAccount;
+    // Sync library filter
+    const libFilter = document.getElementById('library-account-filter');
+    if (libFilter && [...libFilter.options].some(o => o.value === currentAccount)) {
+      libFilter.value = currentAccount;
+      renderLibrary();
+    }
+  }
+
+  function onCreateAccountChange(el) {
+    currentAccount = el.value;
+    const display = document.getElementById('topic-account-display');
+    if (display) display.textContent = currentAccount;
+    syncAccountSelects();
+  }
+
+  function onAnalyticsAccountChange(el) {
+    currentAccount = el.value;
+    syncAccountSelects();
+  }
+
+  // Account char count
+  function updateAcctCharCount(el) {
+    const count = el.value.length;
+    document.getElementById('acctCharCount').textContent = `(${count}/1000)`;
+  }
+
+  // Account modal - add/edit
+  const accountData = {
+    '美妆小魚 🎀': { id: 'meizhuang_xiaoyu', email: 'yuyu@example.com', phone: '138****8888', position: '专注分享学生党平价美妆好物', audience: '18-25岁学生党、初入职场新人', desc: '我是一个在校大学生，预算有限但爱美。分享的东西必须是自己用过的、觉得好用的。语气要像闺蜜聊天一样亲切自然。' },
+    '鱼鱼的衣橱 👗': { id: 'yuyu_wardrobe', email: '', phone: '', position: '小个子女生穿搭指南', audience: '155-165cm女性、学生党', desc: '155cm小个子，专注显高显瘦穿搭。分享的都是自己穿过的实拍，不盲目追潮流。' },
+    '小魚爱生活 🏠': { id: 'xiaoyu_life', email: '', phone: '', position: '', audience: '', desc: '' }
+  };
+
+  function openAccountModal(name) {
+    const title = document.getElementById('accountModalTitle');
+    const nameInput = document.getElementById('acctName');
+    const idInput = document.getElementById('acctId');
+    const emailInput = document.getElementById('acctEmail');
+    const phoneInput = document.getElementById('acctPhone');
+    const posInput = document.getElementById('acctPosition');
+    const audInput = document.getElementById('acctAudience');
+    const descInput = document.getElementById('acctDescription');
+
+    if (name && accountData[name]) {
+      // Edit mode
+      title.textContent = '编辑小红书账号 — ' + name;
+      nameInput.value = name;
+      idInput.value = accountData[name].id;
+      emailInput.value = accountData[name].email || '';
+      phoneInput.value = accountData[name].phone || '';
+      posInput.value = accountData[name].position;
+      audInput.value = accountData[name].audience;
+      descInput.value = accountData[name].desc;
+    } else {
+      // Add mode
+      title.textContent = '添加小红书账号';
+      nameInput.value = '';
+      idInput.value = '';
+      emailInput.value = '';
+      phoneInput.value = '';
+      posInput.value = '';
+      audInput.value = '';
+      descInput.value = '';
+    }
+    updateAcctCharCount(descInput);
+    document.getElementById('accountModalTitle').dataset.editName = name || '';
+    // Show/hide delete button based on edit/add mode
+    document.getElementById('deleteAccountBtn').classList.toggle('hidden', !name);
+    document.getElementById('accountModal').classList.remove('hidden');
+  }
+
+  function deleteAccount() {
+    const name = document.getElementById('accountModalTitle').dataset.editName;
+    if (!name || !accountData[name]) return;
+    if (!confirm('确定要删除账号「' + name + '」吗？此操作不可撤销。')) return;
+    delete accountData[name];
+    // Remove card from DOM
+    const card = document.querySelector('.account-card[data-name="' + CSS.escape(name) + '"]');
+    if (card) card.remove();
+    closeModal('accountModal');
+  }
+
+  function saveAccount() {
+    const name = document.getElementById('acctName').value.trim();
+    const pos = document.getElementById('acctPosition').value.trim();
+    const aud = document.getElementById('acctAudience').value.trim();
+    const desc = document.getElementById('acctDescription').value.trim();
+    if (!name) {
+      alert('请输入小红书账号名称');
+      document.getElementById('acctName').focus();
+      return;
+    }
+    if (!pos) {
+      alert('请输入账号定位');
+      document.getElementById('acctPosition').focus();
+      return;
+    }
+    if (!aud) {
+      alert('请输入目标受众');
+      document.getElementById('acctAudience').focus();
+      return;
+    }
+    if (!desc) {
+      alert('请输入人设详细描述');
+      document.getElementById('acctDescription').focus();
+      return;
+    }
+    closeModal('accountModal');
+    alert('账号已保存 ✅');
+  }
+
+  // Toggle & Model selection
+  function toggleBtn(el) { el.classList.toggle('active'); }
+
+  function selectModel(el) {
+    el.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function selectImageType(el) {
+    el.closest('.image-type-selector').querySelectorAll('.image-type-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    const isAI = el.textContent.includes('AI+提示词');
+    document.getElementById('image-prompt-group').classList.toggle('hidden', !isAI);
+    document.getElementById('image-html-group').classList.toggle('hidden', isAI);
+    if (!isAI) syncHtmlContent();
+  }
+
+  // Topics
+  function generateTopics() { document.getElementById('topicsResult').classList.remove('hidden'); }
+  function selectTopic(el) {
+    document.querySelectorAll('#topicsResult .card').forEach(c => c.style.borderColor = 'transparent');
+    el.style.borderColor = 'var(--primary)';
+  }
+
+  // Wizard - clickable steps
+  let currentStep = 1;
+  function nextWizardStep(step) { jumpToStep(step); }
+  function prevWizardStep(step) { jumpToStep(step); }
+
+  function jumpToStep(step) {
+    if (step > currentStep + 1) return; // can't skip ahead
+    currentStep = Math.max(currentStep, step);
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById(`ws-${i}`);
+      el.classList.toggle('active', i === step);
+      el.classList.toggle('done', i < step);
+      el.classList.toggle('clickable', i < currentStep);
+      el.onclick = i < currentStep ? (s => () => jumpToStep(s))(i) : null;
+      document.getElementById(`ws-body-${i}`).classList.add('hidden');
+    }
+    document.getElementById(`ws-body-${step}`).classList.remove('hidden');
+    if (step === 3) {
+      const activeType = document.querySelector('#ws-body-3 .image-type-btn.active');
+      if (activeType && !activeType.textContent.includes('AI+提示词')) syncHtmlContent();
+    }
+    if (step === 4) syncPublishStep();
+  }
+
+  // Copy generation
+  function generateCopy() { document.getElementById('copyResult').classList.remove('hidden'); }
+
+  // Review actions
+  function showInlineEdit() {
+    document.getElementById('editableCopy').focus();
+  }
+  function openRegenModal() {
+    document.getElementById('regenModal').classList.remove('hidden');
+  }
+  function generateImages() {
+    const isAI = document.querySelector('#ws-body-3 .image-type-btn.active')?.textContent.includes('AI+提示词');
+    if (isAI) {
+      alert('🎨 AI 配图生成中，请稍候...');
+    } else {
+      const count = calculateHtmlImageCount();
+      const grid = document.getElementById('imageGrid');
+      const items = [];
+      for (let i = 1; i <= count; i++) {
+        items.push('<div class="image-item' + (i === 1 ? ' selected' : '') + '"><div class="placeholder"><div class="big-icon">📄</div><span>' + (i === 1 ? '封面' : '第' + i + '页') + '</span></div></div>');
+      }
+      grid.innerHTML = items.join('');
+      alert('✅ 已生成 ' + count + ' 张 HTML 排版图');
+    }
+  }
+
+  // HTML→截图 mode helpers
+  function selectHtmlStyle(el) {
+    document.querySelectorAll('#html-style-group .toggle-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  }
+  function syncHtmlContent() {
+    const copyEl = document.getElementById('editableCopy');
+    const previewEl = document.getElementById('htmlContentPreview');
+    if (copyEl && previewEl) {
+      previewEl.textContent = copyEl.textContent;
+      const count = calculateHtmlImageCount();
+      document.getElementById('htmlImageCount').textContent = '约 ' + count + ' 张';
+    }
+  }
+  function calculateHtmlImageCount() {
+    const copyEl = document.getElementById('editableCopy');
+    if (!copyEl) return 1;
+    const len = copyEl.textContent.trim().length;
+    if (len <= 100) return 1;
+    if (len <= 300) return 2;
+    if (len <= 600) return 3;
+    if (len <= 1000) return 4;
+    return 5;
+  }
+
+  // Publish step helpers
+  function syncPublishStep() {
+    const topicEl = document.getElementById('copyTopicDisplay');
+    const titleEl = document.getElementById('publishTitle');
+    if (topicEl && titleEl) titleEl.value = topicEl.value;
+    const copyEl = document.getElementById('editableCopy');
+    const contentEl = document.getElementById('publishContent');
+    if (copyEl && contentEl) contentEl.textContent = copyEl.textContent;
+  }
+  function openScheduleModal() {
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('scheduleDate').value = tomorrow.toISOString().split('T')[0];
+    document.getElementById('scheduleTime').value = '19:00';
+    document.getElementById('scheduleModal').classList.remove('hidden');
+  }
+  function selectQuickSchedule(el, when) {
+    document.querySelectorAll('#scheduleModal .toggle-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    const dateInput = document.getElementById('scheduleDate');
+    const timeInput = document.getElementById('scheduleTime');
+    const d = new Date();
+    if (when === 'tomorrow') d.setDate(d.getDate() + 1);
+    else d.setDate(d.getDate() + 2);
+    dateInput.value = d.toISOString().split('T')[0];
+    timeInput.value = '19:00';
+  }
+  function confirmSchedule() {
+    const date = document.getElementById('scheduleDate').value;
+    const time = document.getElementById('scheduleTime').value;
+    const reminder = document.querySelector('#scheduleModal .toggle-switch input').checked;
+    closeModal('scheduleModal');
+    alert(`✅ 定时发布已设置：${date} ${time}${reminder ? '，提前10分钟邮件提醒' : ''}`);
+  }
+  function copyText(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('已复制到剪贴板 ✅');
+    }).catch(() => {
+      alert('复制失败，请手动复制');
+    });
+  }
+
+  // Note library data & rendering
+  const noteData = {
+    published: [
+      { id: 1, title: '油皮夏日底妆教程 🎨', account: '美妆小魚 🎀', time: '2025-07-09 20:00', likes: 1256, comments: 89 , url: 'https://www.xiaohongshu.com/explore/66b111' },
+      { id: 2, title: '夏日持妆大法！油皮也能 hold 住一整天', account: '美妆小魚 🎀', time: '2025-07-08 19:00', likes: 1200, comments: 85 , url: 'https://www.xiaohongshu.com/explore/66c222' },
+      { id: 3, title: '周末穿搭 OOTD | 简约韩系风', account: '鱼鱼的衣橱 👗', time: '2025-07-07 12:00', likes: 876, comments: 54 , url: 'https://www.xiaohongshu.com/explore/66d333' },
+      { id: 4, title: '平价彩妆红黑榜 ❌✅', account: '美妆小魚 🎀', time: '2025-07-05 19:00', likes: 980, comments: 72 , url: 'https://www.xiaohongshu.com/explore/66e444' },
+      { id: 5, title: '早八人5分钟快速出门妆容教程', account: '美妆小魚 🎀', time: '2025-07-03 12:00', likes: 876, comments: 54 , url: 'https://www.xiaohongshu.com/explore/66f555' },
+      { id: 6, title: '卧室改造 | 10㎡小房间温馨布置', account: '小魚爱生活 🏠', time: '2025-07-01 18:00', likes: 654, comments: 38 , url: 'https://www.xiaohongshu.com/explore/670666' },
+      { id: 7, title: '学生党军训防晒推荐 ☀️', account: '美妆小魚 🎀', time: '2025-06-28 12:00', likes: 654, comments: 38 , url: 'https://www.xiaohongshu.com/explore/671777' },
+      { id: 8, title: '韩系简约穿搭 | 小个子显高显瘦', account: '鱼鱼的衣橱 👗', time: '2025-06-25 19:00', likes: 543, comments: 32 , url: 'https://www.xiaohongshu.com/explore/672888' },
+      { id: 9, title: '油皮亲测粉底液合集 💄', account: '美妆小魚 🎀', time: '2025-06-22 12:00', likes: 432, comments: 28 , url: 'https://www.xiaohongshu.com/explore/673999' },
+      { id: 10, title: '小个子显高穿搭技巧 ✨', account: '鱼鱼的衣橱 👗', time: '2025-06-20 18:00', likes: 321, comments: 22 , url: 'https://www.xiaohongshu.com/explore/674aaa' },
+      { id: 11, title: '学生党百元好物合集 🛍️', account: '美妆小魚 🎀', time: '2025-06-18 19:00', likes: 234, comments: 15 , url: 'https://www.xiaohongshu.com/explore/675bbb' },
+      { id: 12, title: '夏日饮品 DIY 教程 🍹', account: '小魚爱生活 🏠', time: '2025-06-15 12:00', likes: 189, comments: 12 , url: 'https://www.xiaohongshu.com/explore/676ccc' },
+    ],
+    pending: [
+      { id: 101, title: '夏日持妆大法！油皮也能 hold 住一整天', account: '美妆小魚 🎀', time: '2025-07-10 19:00', reminder: true , url: 'https://www.xiaohongshu.com/explore/6d5bb5' },
+      { id: 102, title: '周末穿搭 OOTD | 简约韩系风', account: '鱼鱼的衣橱 👗', time: '2025-07-11 12:00', reminder: false , url: 'https://www.xiaohongshu.com/explore/6d6cc6' },
+      { id: 103, title: '小户型收纳好物推荐 🏠', account: '小魚爱生活 🏠', time: '2025-07-12 18:00', reminder: true , url: 'https://www.xiaohongshu.com/explore/6d7dd7' },
+      { id: 104, title: '学生党平价护肤好物 ✨', account: '美妆小魚 🎀', time: '2025-07-13 19:00', reminder: true , url: 'https://www.xiaohongshu.com/explore/6d8ee8' },
+      { id: 105, title: '职场通勤穿搭 | 简约大方', account: '鱼鱼的衣橱 👗', time: '2025-07-14 12:00', reminder: false , url: 'https://www.xiaohongshu.com/explore/6d9ff9' },
+      { id: 106, title: '夏日防晒测评 ☀️', account: '美妆小魚 🎀', time: '2025-07-15 19:00', reminder: true , url: 'https://www.xiaohongshu.com/explore/6db10a' },
+      { id: 107, title: '阳台绿植布置分享 🌱', account: '小魚爱生活 🏠', time: '2025-07-16 18:00', reminder: false , url: 'https://www.xiaohongshu.com/explore/6dc21b' },
+      { id: 108, title: '油皮夏季护肤流程 🧴', account: '美妆小魚 🎀', time: '2025-07-17 12:00', reminder: true , url: 'https://www.xiaohongshu.com/explore/6dd32c' },
+      { id: 109, title: '约会穿搭小心机 💕', account: '鱼鱼的衣橱 👗', time: '2025-07-18 19:00', reminder: true , url: 'https://www.xiaohongshu.com/explore/6de43d' },
+      { id: 110, title: '周末 brunch 探店推荐 🥐', account: '小魚爱生活 🏠', time: '2025-07-19 18:00', reminder: false , url: 'https://www.xiaohongshu.com/explore/6df54e' },
+      { id: 111, title: '平价彩妆开箱实测 📦', account: '美妆小魚 🎀', time: '2025-07-20 12:00', reminder: true , url: 'https://www.xiaohongshu.com/explore/6e065f' },
+      { id: 112, title: '一周穿搭不重样 👗', account: '鱼鱼的衣橱 👗', time: '2025-07-21 19:00', reminder: true , url: 'https://www.xiaohongshu.com/explore/6e1770' },
+    ]
+  };
+
+  let libraryTab = 'pending';
+  let libraryPage = { pending: 1, published: 1 };
+  const pageSize = 10;
+
+  function onLibraryAccountChange() {
+    libraryPage = { published: 1, pending: 1 };
+    renderLibrary();
+  }
+
+  function switchLibraryTab(tab) {
+    libraryTab = tab;
+    document.querySelectorAll('.library-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.getElementById('library-pending').classList.toggle('hidden', tab !== 'pending');
+    document.getElementById('library-published').classList.toggle('hidden', tab !== 'published');
+    renderLibrary();
+  }
+
+  function getFilteredNotes(type) {
+    const filter = document.getElementById('library-account-filter').value;
+    let notes = noteData[type];
+    if (filter !== 'all') notes = notes.filter(n => n.account === filter);
+    return notes;
+  }
+
+  function renderLibrary() {
+    const notes = getFilteredNotes(libraryTab);
+    const totalPages = Math.max(1, Math.ceil(notes.length / pageSize));
+    let page = libraryPage[libraryTab];
+    if (page > totalPages) page = libraryPage[libraryTab] = totalPages;
+    const start = (page - 1) * pageSize;
+    const pageNotes = notes.slice(start, start + pageSize);
+    const container = document.getElementById('library-' + libraryTab);
+
+    if (pageNotes.length === 0) {
+      container.innerHTML = '<div class="text-center text-secondary" style="padding:60px 20px;">暂无笔记</div>';
+    } else {
+      container.innerHTML = pageNotes.map(n => {
+        const cardClass = ' style="padding:16px 20px;margin-bottom:8px;cursor:pointer;"';
+        if (libraryTab === 'published') {
+          return '<div class="card"' + cardClass + ' onclick="openNoteDetail(\'published\',' + n.id + ')">' +
+            '<div style="display:flex;align-items:flex-start;gap:14px;">' +
+            '<span style="background:var(--primary-bg);padding:10px 14px;border-radius:8px;font-size:1.2rem;flex-shrink:0;">📝</span>' +
+            '<div style="flex:1;min-width:0;">' +
+            '<div style="font-weight:500;">' + n.title + '</div>' +
+            '<div class="text-sm text-secondary">' + n.account + '</div>' +
+            '<div style="display:flex;align-items:center;gap:12px;margin-top:6px;flex-wrap:wrap;">' +
+            '<span class="text-xs text-secondary">📅 ' + n.time + '</span>' +
+            '<span class="text-xs" style="color:var(--primary);">❤️ ' + fmtLikes(n.likes) + '</span>' +
+            '<span class="text-xs text-secondary">💬 ' + n.comments + '</span>' +
+            '</div></div>' +
+            '<span class="badge badge-green" style="flex-shrink:0;">已发布</span>' +
+            '</div></div>';
+        } else {
+          return '<div class="card"' + cardClass + ' onclick="openNoteDetail(\'pending\',' + n.id + ')">' +
+            '<div style="display:flex;align-items:flex-start;gap:14px;">' +
+            '<span style="background:#fff3e0;padding:10px 14px;border-radius:8px;font-size:1.2rem;flex-shrink:0;">📝</span>' +
+            '<div style="flex:1;min-width:0;">' +
+            '<div style="font-weight:500;">' + n.title + '</div>' +
+            '<div class="text-sm text-secondary">' + n.account + '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">' +
+            '<span class="badge badge-purple">⏰ 预计发布</span>' +
+            '<span class="text-sm" style="color:var(--accent-orange);font-weight:500;">' + n.time + '</span>' +
+            '<span class="text-xs text-secondary">' + (n.reminder ? '| 邮件提醒' : '| 提醒关闭') + '</span>' +
+            '</div></div>' +
+            '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">' +
+            '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();markAsPublished(' + n.id + ')">✅ 标记已发布</button>' +
+            '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();deletePendingNote(' + n.id + ')">🗑️ 删除</button>' +
+            '</div></div></div>';
+        }
+      }).join('');
+    }
+    renderPagination(totalPages, page);
+  }
+
+  function fmtLikes(n) { return n >= 1000 ? (n/1000).toFixed(1) + 'K' : n; }
+
+  function renderPagination(totalPages, currentPage) {
+    const el = document.getElementById('library-pagination');
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:20px 0;">' +
+      '<button class="btn btn-outline btn-sm" onclick="changeLibraryPage(-1)"' + (currentPage <= 1 ? ' disabled' : '') + '>← 上一页</button>' +
+      '<span class="text-sm text-secondary">第 ' + currentPage + ' / ' + totalPages + ' 页</span>' +
+      '<button class="btn btn-outline btn-sm" onclick="changeLibraryPage(1)"' + (currentPage >= totalPages ? ' disabled' : '') + '>下一页 →</button></div>';
+  }
+
+  function changeLibraryPage(delta) {
+    libraryPage[libraryTab] += delta;
+    renderLibrary();
+  }
+
+  function markAsPublished(id) {
+    const idx = noteData.pending.findIndex(n => n.id === id);
+    if (idx === -1) return;
+    const note = noteData.pending[idx];
+    noteData.pending.splice(idx, 1);
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const timeStr = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    noteData.published.unshift({ id: Date.now(), title: note.title, account: note.account, time: timeStr, likes: 0, comments: 0 });
+    if (libraryPage.pending > Math.ceil(noteData.pending.length / pageSize)) libraryPage.pending = Math.max(1, Math.ceil(noteData.pending.length / pageSize));
+    if (libraryPage.published > Math.ceil(noteData.published.length / pageSize)) libraryPage.published = Math.max(1, Math.ceil(noteData.published.length / pageSize));
+    renderLibrary();
+    updateTabCounts();
+  }
+
+  function deletePendingNote(id) {
+    if (!confirm('确定删除这篇笔记？')) return;
+    noteData.pending = noteData.pending.filter(n => n.id !== id);
+    if (libraryPage.pending > Math.ceil(noteData.pending.length / pageSize)) libraryPage.pending = Math.max(1, Math.ceil(noteData.pending.length / pageSize));
+    renderLibrary();
+    updateTabCounts();
+  }
+
+  function openNoteDetail(type, id) {
+    const note = noteData[type].find(n => n.id === id);
+    if (!note) return;
+    document.getElementById('detailAccount').textContent = note.account;
+    document.getElementById('detailTitle').value = note.title;
+    const copyEl = document.getElementById('editableCopy');
+    document.getElementById('detailContent').textContent = copyEl ? copyEl.textContent : '夏日炎炎，油皮姐妹是不是又在为脱妆发愁了？😭\n\n今天教大家几招夏日持妆秘诀，亲测有效！';
+    document.getElementById('noteDetailModal').classList.remove('hidden');
+  }
+
+  function updateTabCounts() {
+    document.querySelectorAll('.library-tab').forEach(tab => {
+      const type = tab.dataset.tab;
+      const count = noteData[type].length;
+      const badge = tab.querySelector('.badge');
+      if (badge) badge.textContent = count;
+    });
+  }
+
+  // Sync countdown
+  let syncCountdownInterval = null;
+
+  function startSyncCountdown() {
+    const days = parseInt(document.getElementById('syncInterval').value) || 1;
+    const timeStr = document.getElementById('syncTimeOfDay').value || '02:00';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+
+    const now = new Date();
+    let next = new Date(now);
+    next.setHours(hours, minutes, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + days);
+
+    if (syncCountdownInterval) clearInterval(syncCountdownInterval);
+
+    function updateDisplay() {
+      const el = document.getElementById('syncCountdownDisplay');
+      if (!el) return;
+      const diff = next - new Date();
+      if (diff <= 0) {
+        const n2 = new Date();
+        next = new Date(n2);
+        next.setHours(hours, minutes, 0, 0);
+        if (next <= n2) next.setDate(next.getDate() + days);
+        return;
+      }
+      const total = Math.floor(diff / 1000);
+      const d = Math.floor(total / 86400);
+      const h = Math.floor((total % 86400) / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      el.textContent = d > 0
+        ? `下次同步：${d}天${h}时${m}分${s}秒`
+        : `下次同步：${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    updateDisplay();
+    syncCountdownInterval = setInterval(updateDisplay, 1000);
+  }
+
+  // Analytics data & table
+  const analyticsData = [
+    { id: 1, title: '油皮夏日底妆教程 🎨', content: '夏日炎炎，油皮姐妹是不是又在为脱妆发愁了？😭 今天教大家几招夏日持妆秘诀：妆前用控油隔离，粉底选择持妆型，定妆用烘焙法，出门随身带粉饼补妆。亲测有效！底妆服帖一整天。', imageCount: 5, likes: 1256, comments: 89, bookmarks: 345, shares: 67, time: '2026-06-05 20:00' , url: 'https://www.xiaohongshu.com/explore/66b111' },
+    { id: 2, title: '夏日持妆大法！油皮也能 hold 住一整天', content: '油皮夏天化妆真的是太难了！出门五分钟就脱妆？这个方法一定要试试！首先妆前保湿要到位但不要太油腻，选择清爽型的妆前乳。粉底液要选控油持妆款，用湿海绵拍打开。', imageCount: 4, likes: 1200, comments: 85, bookmarks: 298, shares: 54, time: '2026-06-04 19:00' , url: 'https://www.xiaohongshu.com/explore/66c222' },
+    { id: 3, title: '周末穿搭 OOTD | 简约韩系风', content: '周末出门穿搭分享～今天是简约韩系风格，整体色调以米白和卡其为主。上衣选择宽松针织衫，下装搭配直筒牛仔裤，再配一双白色帆布鞋。简单又好看！', imageCount: 3, likes: 876, comments: 54, bookmarks: 210, shares: 38, time: '2026-06-03 12:00' , url: 'https://www.xiaohongshu.com/explore/66d333' },
+    { id: 4, title: '平价彩妆红黑榜 ❌✅', content: '给大家整理了最近入手的平价彩妆红黑榜！红榜有：橘朵腮红（显色度好）、完美日记眼影盘（配色绝美）、花西子散粉（粉质细腻）。黑榜有：某品牌粉底液（氧化快）、某唇釉（拔干）。', imageCount: 6, likes: 980, comments: 72, bookmarks: 412, shares: 89, time: '2026-06-02 19:00' , url: 'https://www.xiaohongshu.com/explore/66e444' },
+    { id: 5, title: '早八人5分钟快速出门妆容教程 ⏰', content: '早八人的福音来啦！只需要5分钟就能完成的快速出门妆。步骤：1分钟底妆（气垫BB），1分钟眉毛（砍刀眉笔），1分钟眼影（大地色打底），1分钟腮红+口红，1分钟定妆喷雾。', imageCount: 4, likes: 876, comments: 54, bookmarks: 267, shares: 45, time: '2026-06-01 12:00' , url: 'https://www.xiaohongshu.com/explore/66f555' },
+    { id: 6, title: '卧室改造 | 10㎡小房间温馨布置', content: '花了三天时间把卧室重新布置了一下，改造前后对比真的很大！主要做了这几件事：换了暖色调窗帘、添加了墙面收纳架、换了床头灯、增加了绿植。总花费不到500元，但整个房间都变温馨了。', imageCount: 5, likes: 654, comments: 38, bookmarks: 189, shares: 28, time: '2026-05-30 18:00' , url: 'https://www.xiaohongshu.com/explore/670666' },
+    { id: 7, title: '学生党军训防晒推荐 ☀️', content: '马上又要军训了，防晒一定要做好！推荐几款军训好物：安热沙小金瓶（防水防汗）、理肤泉大哥大（高倍防晒）、优佳防晒（温和不刺激）。军训期间每2小时补涂一次，晚上记得用卸妆产品。', imageCount: 3, likes: 543, comments: 38, bookmarks: 178, shares: 22, time: '2026-05-28 12:00' , url: 'https://www.xiaohongshu.com/explore/671777' },
+    { id: 8, title: '韩系简约穿搭 | 小个子显高显瘦', content: '作为一个小个子女生，穿搭最重要的是显高！分享几个小技巧：高腰裤+短上衣是绝配，同色系穿搭显高显瘦，V领上衣拉长颈部线条，裙子长度选膝盖以上10cm。', imageCount: 4, likes: 432, comments: 32, bookmarks: 156, shares: 19, time: '2026-05-25 19:00' , url: 'https://www.xiaohongshu.com/explore/672888' },
+    { id: 9, title: '油皮亲测粉底液合集 💄', content: '作为资深油皮，这些年用过的粉底液可以开专柜了！今天来个大测评：DW持妆粉底液（遮瑕力强，略干）、NARS超持久（妆效自然）、MAC定制无瑕（性价比高）、植村秀小方瓶（控油好）。', imageCount: 5, likes: 398, comments: 28, bookmarks: 134, shares: 15, time: '2026-05-22 12:00' , url: 'https://www.xiaohongshu.com/explore/673999' },
+    { id: 10, title: '小个子显高穿搭技巧 ✨', content: '整理了6个超实用的显高穿搭技巧，小个子姐妹快收藏！1. 上短下长原则 2. 同色系延伸 3. 露脚踝 4. 竖条纹显瘦 5. 高腰线 6. 尖头鞋。每一个都是亲测有效！', imageCount: 3, likes: 321, comments: 22, bookmarks: 98, shares: 12, time: '2026-05-20 18:00' , url: 'https://www.xiaohongshu.com/explore/674aaa' },
+    { id: 11, title: '学生党百元好物合集 🛍️', content: '给大家推荐一些百元以内的好物！都是我自己在用并且觉得性价比超高的。有文具、护肤品、小饰品等等，每一件都不超过100元但是质量杠杠的！学生党必看！', imageCount: 6, likes: 234, comments: 15, bookmarks: 87, shares: 8, time: '2026-05-18 19:00' , url: 'https://www.xiaohongshu.com/explore/675bbb' },
+    { id: 12, title: '夏日饮品 DIY 教程 🍹', content: '夏天到了，教大家做几款清爽饮品！第一款：柠檬薄荷气泡水，第二款：芒果椰奶冰沙，第三款：西瓜柠檬茶。做法简单，成本不到10元，比奶茶店的好喝还健康！', imageCount: 4, likes: 189, comments: 12, bookmarks: 76, shares: 145, time: '2026-05-15 12:00' , url: 'https://www.xiaohongshu.com/explore/676ccc' },
+    { id: 13, title: '化妆品收纳大法 🏠', content: '化妆品越来越多放不下？教你几招收纳技巧：亚克力收纳盒分类放、旋转置物架省空间、磁铁板收纳眼影盘、挂墙收纳袋放刷子。花小钱解决大问题！', imageCount: 4, likes: 567, comments: 42, bookmarks: 234, shares: 31, time: '2026-05-12 20:00' , url: 'https://www.xiaohongshu.com/explore/677ddd' },
+    { id: 14, title: '敏感肌护肤routine 🧴', content: '作为一个敏感肌，护肤真的不能乱来！分享我的早晚护肤流程：早上用氨基酸洁面+保湿水+修护乳液+防晒；晚上用卸妆膏+洁面+精华+面霜。产品选择温和无刺激的。', imageCount: 3, likes: 723, comments: 56, bookmarks: 312, shares: 42, time: '2026-05-10 19:00' , url: 'https://www.xiaohongshu.com/explore/678eee' },
+    { id: 15, title: '春季衣橱整理 | 断舍离', content: '换季了，来一次彻底的衣橱断舍离！整理了三大袋衣服，总结出几个原则：一年没穿的果断处理、不合身的不要留、同类型只留最好的几件。整理完心情都变好了！', imageCount: 4, likes: 445, comments: 31, bookmarks: 167, shares: 24, time: '2026-05-08 12:00' , url: 'https://www.xiaohongshu.com/explore/679fff' },
+    { id: 16, title: '日常通勤妆容分享 💼', content: '日常上班妆容不需要太浓，重点是干净清爽。我的通勤妆步骤：轻薄粉底+自然眉形+大地色眼影+豆沙色口红。5分钟搞定，适合所有上班族！', imageCount: 3, likes: 334, comments: 25, bookmarks: 123, shares: 16, time: '2026-05-05 18:00' , url: 'https://www.xiaohongshu.com/explore/67b110' },
+    { id: 17, title: '双十一购物清单分享 📋', content: '双十一快到了，给大家分享我的购物清单！护肤品要囤的：精华、面霜、防晒；彩妆要入的：粉底液、眼影盘、口红。还有一些日用品和零食。记住要理性消费哦！', imageCount: 5, likes: 876, comments: 67, bookmarks: 445, shares: 78, time: '2026-05-03 19:00' , url: 'https://www.xiaohongshu.com/explore/67c221' },
+    { id: 18, title: '染发后护色护理指南', content: '染了漂亮发色之后怎么护理才能不掉色快？几个小技巧：用专门的护色洗发水、水温不要太高、少用热风吹、定期做发膜。这样做能让发色维持更久！', imageCount: 3, likes: 267, comments: 18, bookmarks: 98, shares: 11, time: '2026-05-01 12:00' , url: 'https://www.xiaohongshu.com/explore/67d332' },
+    { id: 19, title: '上海探店 | 藏在弄堂里的咖啡店 ☕', content: '周末和闺蜜去了一家藏在弄堂里的咖啡店，环境太赞了！工业风装修搭配绿植，拍照超出片。点了他们家的招牌拿铁和提拉米苏，味道很不错～价格人均60左右。', imageCount: 6, likes: 654, comments: 45, bookmarks: 234, shares: 56, time: '2026-04-28 18:00' , url: 'https://www.xiaohongshu.com/explore/67e443' },
+    { id: 20, title: '新手化妆刷扫盲指南 🖌️', content: '新手姐妹看过来！化妆刷不用买全套，有这几把就够用了：散粉刷（定妆）、腮红刷（自然晕染）、眼影铺色刷、眼影晕染刷、细节刷。推荐买纤维毛的，好打理不扎脸。', imageCount: 4, likes: 512, comments: 38, bookmarks: 267, shares: 34, time: '2026-04-25 19:00' , url: 'https://www.xiaohongshu.com/explore/67f554' },
+    { id: 21, title: '618必买护肤好物推荐', content: '618大促来了，整理了必买的护肤好物清单！洗面奶、精华、面霜、防晒、面膜，每一款都是我用过觉得值得回购的。大家理性种草，按需购买哦～', imageCount: 5, likes: 723, comments: 52, bookmarks: 378, shares: 45, time: '2026-04-22 12:00' , url: 'https://www.xiaohongshu.com/explore/680665' },
+    { id: 22, title: '一周穿搭不重样 👗', content: '分享一周七天的穿搭方案，每天都是不同风格！周一通勤风、周二休闲风、周三约会风、周四运动风、周五混搭风、周六出游风、周日居家风。你pick哪一套？', imageCount: 7, likes: 890, comments: 62, bookmarks: 312, shares: 67, time: '2026-04-20 18:00' , url: 'https://www.xiaohongshu.com/explore/681776' },
+    { id: 23, title: '黑头怎么去？保姆级教程', content: '黑头真的是困扰很多人的问题！我的去黑头步骤：先用热毛巾敷脸打开毛孔，然后用水杨酸棉片擦拭，再用清洁面膜敷10分钟，最后用粉刺针轻轻刮除。做完记得收缩毛孔！', imageCount: 3, likes: 1102, comments: 78, bookmarks: 456, shares: 89, time: '2026-04-18 19:00' , url: 'https://www.xiaohongshu.com/explore/682887' },
+    { id: 24, title: '大学生兼职经验分享 💰', content: '大学四年做了很多兼职，分享一些靠谱的兼职渠道和经验：家教（时薪最高）、新媒体运营（积累经验）、摄影约拍（兴趣变现）、展会志愿者（开阔眼界）。不推荐刷单等违法兼职！', imageCount: 2, likes: 456, comments: 34, bookmarks: 189, shares: 23, time: '2026-04-15 12:00' , url: 'https://www.xiaohongshu.com/explore/683998' },
+    { id: 25, title: '干皮秋冬护肤攻略 🍂', content: '干皮到了秋冬就特别容易起皮卡粉，分享我的秋冬护肤攻略：洁面选择氨基酸的、水乳用滋润型、面霜要厚重一些、每周做2-3次补水面膜。底妆选择滋润型粉底液。', imageCount: 4, likes: 345, comments: 28, bookmarks: 156, shares: 18, time: '2026-04-12 18:00' , url: 'https://www.xiaohongshu.com/explore/684aa9' },
+    { id: 26, title: '健身入门 | 在家就能做的运动', content: '不想去健身房？在家也能练！分享几个适合新手的居家运动：平板支撑（核心训练）、深蹲（翘臀）、开合跳（全身燃脂）、瑜伽拉伸（柔韧性）。每天20分钟，坚持一个月就有变化！', imageCount: 3, likes: 678, comments: 48, bookmarks: 345, shares: 56, time: '2026-04-10 19:00' , url: 'https://www.xiaohongshu.com/explore/685bba' },
+    { id: 27, title: '生日布置灵感 | 简单又出片 🎂', content: '男朋友生日布置分享～在家自己动手布置的，气球链+背景布+LED灯串，搭配鲜花和蛋糕。一共花了不到200元，效果超出片！附上购买清单和布置教程。', imageCount: 5, likes: 567, comments: 42, bookmarks: 234, shares: 67, time: '2026-04-08 12:00' , url: 'https://www.xiaohongshu.com/explore/686ccb' },
+    { id: 28, title: '换季过敏急救指南 🤧', content: '每到换季就过敏的姐妹看过来！我的过敏急救方案：立即停用功能性护肤品，只用温和的修护产品，生理盐水湿敷缓解泛红，口服抗过敏药（遵医嘱）。严重的话一定要去看医生！', imageCount: 2, likes: 432, comments: 35, bookmarks: 198, shares: 28, time: '2026-04-05 18:00' , url: 'https://www.xiaohongshu.com/explore/687ddc' },
+  ];
+
+  let analyticsSortField = 'time';
+  let analyticsSortOrder = 'desc';
+  let analyticsPage = 1;
+  const analyticsPageSize = 10;
+
+  function getFilteredAnalyticsData() {
+    const dateStart = document.getElementById('filterDateStart')?.value;
+    const dateEnd = document.getElementById('filterDateEnd')?.value;
+    const likesMin = parseInt(document.getElementById('filterLikesMin')?.value) || 0;
+    const likesMax = parseInt(document.getElementById('filterLikesMax')?.value) || Infinity;
+    const bookmarksMin = parseInt(document.getElementById('filterBookmarksMin')?.value) || 0;
+    const bookmarksMax = parseInt(document.getElementById('filterBookmarksMax')?.value) || Infinity;
+    const commentsMin = parseInt(document.getElementById('filterCommentsMin')?.value) || 0;
+    const commentsMax = parseInt(document.getElementById('filterCommentsMax')?.value) || Infinity;
+    let data = analyticsData.filter(n => {
+      // Search filter
+      // Date filter
+      if (dateEnd && n.time.slice(0, 10) > dateEnd) return false;
+      // Likes filter
+      if (n.likes < likesMin) return false;
+      if (likesMax !== Infinity && n.likes > likesMax) return false;
+      // Bookmarks filter
+      if (n.bookmarks < bookmarksMin) return false;
+      if (bookmarksMax !== Infinity && n.bookmarks > bookmarksMax) return false;
+      // Comments filter
+      if (n.comments < commentsMin) return false;
+      if (commentsMax !== Infinity && n.comments > commentsMax) return false;
+      return true;
+    });
+
+    // Sort
+    data.sort((a, b) => {
+      const va = a[analyticsSortField];
+      const vb = b[analyticsSortField];
+      if (typeof va === 'string') {
+        return analyticsSortOrder === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      }
+      return analyticsSortOrder === 'asc' ? va - vb : vb - va;
+    });
+
+    return data;
+  }
+
+  function renderAnalyticsTable() {
+    const data = getFilteredAnalyticsData();
+    const totalPages = Math.max(1, Math.ceil(data.length / analyticsPageSize));
+    if (analyticsPage > totalPages) analyticsPage = totalPages;
+
+    const start = (analyticsPage - 1) * analyticsPageSize;
+    const pageData = data.slice(start, start + analyticsPageSize);
+
+    const tbody = document.getElementById('analyticsTableBody');
+    if (!pageData.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-light);">暂无匹配数据</td></tr>';
+    } else {
+      tbody.innerHTML = pageData.map(n => {
+        const contentPreview = n.content.length > 80 ? n.content.slice(0, 80) + '...' : n.content;
+        return '<tr>' +
+          '<td><a class="note-title" href="' + (n.url || '#') + '" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + n.title + '</a><span class="note-content-preview">' + escapeHtml(contentPreview) + '</span></td>' +
+          '<td style="text-align:center;"><span class="badge badge-blue" style="font-size:.786rem;">' + n.imageCount + '图</span></td>' +
+          '<td style="font-weight:500;">' + fmtAnalyticsNum(n.likes) + '</td>' +
+          '<td>' + n.comments + '</td>' +
+          '<td>' + fmtAnalyticsNum(n.bookmarks) + '</td>' +
+          '<td>' + fmtAnalyticsNum(n.shares) + '</td>' +
+          '<td style="color:var(--text-secondary);font-size:.786rem;">' + n.time + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    // Update sort indicators
+    document.querySelectorAll('.data-table th.sortable').forEach(th => {
+      th.classList.remove('sort-asc', 'sort-desc');
+      const field = th.getAttribute('onclick')?.match(/sortAnalytics\('(\w+)'\)/)?.[1];
+      if (field === analyticsSortField) {
+        th.classList.add(analyticsSortOrder === 'asc' ? 'sort-asc' : 'sort-desc');
+        th.querySelector('.sort-icon').textContent = analyticsSortOrder === 'asc' ? '↑' : '↓';
+      } else {
+        th.querySelector('.sort-icon').textContent = '⇅';
+      }
+    });
+
+    // Pagination
+    const pagEl = document.getElementById('analyticsPagination');
+    if (totalPages <= 1) {
+      pagEl.innerHTML = '<span class="text-sm text-secondary">共 ' + data.length + ' 条笔记</span>';
+    } else {
+      pagEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="changeAnalyticsPage(-1)"' + (analyticsPage <= 1 ? ' disabled' : '') + '>← 上一页</button>' +
+        '<span class="text-sm text-secondary">第 ' + analyticsPage + ' / ' + totalPages + ' 页（共' + data.length + '条）</span>' +
+        '<button class="btn btn-outline btn-sm" onclick="changeAnalyticsPage(1)"' + (analyticsPage >= totalPages ? ' disabled' : '') + '>下一页 →</button>';
+    }
+  }
+
+  function changeAnalyticsPage(delta) {
+    analyticsPage += delta;
+    renderAnalyticsTable();
+  }
+
+  function sortAnalytics(field) {
+    if (analyticsSortField === field) {
+      analyticsSortOrder = analyticsSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+      analyticsSortField = field;
+      analyticsSortOrder = 'desc';
+    }
+    analyticsPage = 1;
+    renderAnalyticsTable();
+  }
+
+  function resetAnalyticsFilters() {
+    document.getElementById('filterDateStart').value = '';
+    document.getElementById('filterDateEnd').value = '';
+    document.getElementById('filterLikesMin').value = '';
+    document.getElementById('filterLikesMax').value = '';
+    document.getElementById('filterBookmarksMin').value = '';
+    document.getElementById('filterBookmarksMax').value = '';
+    document.getElementById('filterCommentsMin').value = '';
+    document.getElementById('filterCommentsMax').value = '';
+        analyticsSortField = 'time';
+    analyticsSortOrder = 'desc';
+    analyticsPage = 1;
+    renderAnalyticsTable();
+  }
+
+  function exportAnalyticsCSV() {
+    const data = getFilteredAnalyticsData();
+    if (!data.length) {
+      alert('暂无数据可导出');
+      return;
+    }
+
+    // Build CSV
+    const headers = ['笔记标题', '笔记内容', '配图数', '点赞数', '评论数', '收藏数', '转发数', '发布时间'];
+    const rows = data.map(n => [
+      '"' + (n.title || '').replace(/"/g, '""') + '"',
+      '"' + (n.content || '').replace(/"/g, '""') + '"',
+      n.imageCount,
+      n.likes,
+      n.comments,
+      n.bookmarks,
+      n.shares,
+      n.time
+    ].join(','));
+    const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = '笔记数据_' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }
+
+  function fmtAnalyticsNum(n) {
+    return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K' : n;
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // Modals
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+  });
+
+  // Init
+  renderLibrary();
+  updateTabCounts();
+  startSyncCountdown();
+  renderAnalyticsTable();
+</script>
+</body>
+</html>
