@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@/components/ui/modal'
 import { ScheduleModal } from '@/components/modals/ScheduleModal'
+import { RegenerateModal } from '@/components/modals/RegenerateModal'
 import api from '@/lib/api'
 import type { Topic } from '@/lib/ai/types'
 
@@ -563,14 +564,23 @@ export default function CreatePage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-medium">笔记内容</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateContentWithTitle}
-                    disabled={aiLoading || !selectedAccount || !title.trim()}
-                  >
-                    {aiLoading ? '生成中...' : '✨ AI 生成内容'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateContentWithTitle}
+                      disabled={aiLoading || !selectedAccount || !title.trim()}
+                    >
+                      {aiLoading ? '生成中...' : '✨ AI 生成内容'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="text-orange-500"
+                      onClick={() => setShowRegenerateModal(true)}
+                    >
+                      🔄 重新生成
+                    </Button>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="block text-sm font-medium text-gray-500 mb-1.5">
@@ -1024,6 +1034,16 @@ export default function CreatePage() {
           })
         }}
         defaultEmail={schedule.email}
+      />
+
+      {/* 重新生成 Modal */}
+      <RegenerateModal
+        open={showRegenerateModal}
+        onOpenChange={setShowRegenerateModal}
+        onRegenerate={(feedback) => {
+          setUserFeedback(feedback)
+          handleRegenerateWithFeedback()
+        }}
       />
     </>
   )
