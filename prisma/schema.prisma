@@ -7,12 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Admin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model User {
   id        String    @id @default(cuid())
   phone     String    @unique
   password  String
   name      String?
   createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   accounts  Account[]
 }
 
@@ -48,6 +58,8 @@ model Note {
   publishAt     DateTime?
   publishedAt   DateTime?
   xiaohongshuUrl String?
+  platformSource String    @default("platform")
+  syncStatus    String    @default("linked")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
