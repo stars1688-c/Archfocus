@@ -1,5 +1,5 @@
 /**
- * 计算两个字符串的差异字符数（Levenshtein 距离）
+ * 计算两个字符串的 Levenshtein 距离（支持插入、删除、替换操作）
  */
 export function calculateStringDiff(str1: string, str2: string): number {
   const s1 = str1.toLowerCase()
@@ -10,18 +10,29 @@ export function calculateStringDiff(str1: string, str2: string): number {
   const len1 = s1.length
   const len2 = s2.length
 
-  // 简单实现：字符对比
-  let diff = 0
-  const minLen = Math.min(len1, len2)
+  // 创建 DP 表
+  const dp: number[][] = Array(len1 + 1).fill(null).map(() => Array(len2 + 1).fill(0))
 
-  for (let i = 0; i < minLen; i++) {
-    if (s1[i] !== s2[i]) diff++
+  // 初始化边界
+  for (let i = 0; i <= len1; i++) dp[i][0] = i
+  for (let j = 0; j <= len2; j++) dp[0][j] = j
+
+  // 填充 DP 表
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      if (s1[i - 1] === s2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1]
+      } else {
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,     // 删除
+          dp[i][j - 1] + 1,     // 插入
+          dp[i - 1][j - 1] + 1  // 替换
+        )
+      }
+    }
   }
 
-  // 加上长度差异
-  diff += Math.abs(len1 - len2)
-
-  return diff
+  return dp[len1][len2]
 }
 
 /**
