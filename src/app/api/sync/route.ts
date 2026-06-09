@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 import { fetchNotes } from '@/lib/tiktokomni'
+import { findMatchingNote } from '@/lib/notes'
 
 // GET /api/sync - 获取同步配置
 export async function GET(request: NextRequest) {
@@ -76,6 +77,14 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // 统计信息
+    const stats = {
+      linked: 0,
+      pendingLink: 0,
+      externalNew: 0,
+      movedToPublished: 0,
+    }
+
     const results = []
 
     for (const account of accounts) {
@@ -85,11 +94,65 @@ export async function POST(request: NextRequest) {
         // 从 TikOmni 获取数据
         const syncResult = await fetchNotes(account.id, account.xiaohongshuId)
 
-        // 更新笔记数据
+        // 获取本地已发布和待发布列表
+        const localPublishedNotes = await prisma.note.findMany({
+          where: { accountId: account.id, status: 'published' },
+          select: { id: true, title: true, platformSource: true, syncStatus: true },
+        })
+
+        const localPendingNotes = await prisma.note.findMany({
+          where: { accountId: account.id, status: 'pending' },
+          select: { id: true, title: true },
+        })
+
+        // 收集已匹配的本地笔记 ID
+        const matchedNoteIds = new Set<string>()
+
+        // 遍历 TikOmni 笔记，进行匹配
         for (const noteData of syncResult.notes) {
-          await prisma.note.upsert({
-            where: { id: noteData.note_id },
-            create: {
+          // 先在已发布列表中查找匹配
+          const publishedMatch = findMatchingNote(
+            { title: noteData.title, note_id: noteData.note_id },
+            localPublishedNotes
+          )
+
+          if (publishedMatch) {
+            // Case 1: TikOmni 有 + 已发布有 = 平台创作，已关联
+            matchedNoteIds.add(publishedMatch.id)
+            await prisma.note.update({
+              where: { id: publishedMatch.id },
+              data: { platformSource: 'platform', syncStatus: 'linked' },
+            })
+            stats.linked++
+            continue
+          }
+
+          // 再在待发布列表中查找匹配
+          const pendingMatch = findMatchingNote(
+            { title: noteData.title, note_id: noteData.note_id },
+            localPendingNotes
+          )
+
+          if (pendingMatch) {
+            // Case 2: TikOmni 有 + 待发布有 = 平台创作，已关联，自动移至已发布
+            matchedNoteIds.add(pendingMatch.id)
+            await prisma.note.update({
+              where: { id: pendingMatch.id },
+              data: {
+                status: 'published',
+                publishedAt: new Date(noteData.published_at),
+                platformSource: 'platform',
+                syncStatus: 'linked',
+              },
+            })
+            stats.linked++
+            stats.movedToPublished++
+            continue
+          }
+
+          // Case 3: TikOmni 有 + 本地都没有 = 非平台创作，入库
+          await prisma.note.create({
+            data: {
               id: noteData.note_id,
               accountId: account.id,
               title: noteData.title,
@@ -102,17 +165,22 @@ export async function POST(request: NextRequest) {
               status: 'published',
               publishedAt: new Date(noteData.published_at),
               xiaohongshuUrl: noteData.url,
-            },
-            update: {
-              title: noteData.title,
-              content: noteData.content,
-              images: JSON.stringify(noteData.images),
-              likes: noteData.likes,
-              comments: noteData.comments,
-              bookmarks: noteData.bookmarks,
-              shares: noteData.shares,
+              platformSource: 'external',
+              syncStatus: 'linked',
             },
           })
+          stats.externalNew++
+        }
+
+        // Case 4: 已发布列表中有但 TikOmni 找不到的 = 非平台创作，待关联
+        for (const note of localPublishedNotes) {
+          if (!matchedNoteIds.has(note.id) && note.platformSource === 'platform') {
+            await prisma.note.update({
+              where: { id: note.id },
+              data: { syncStatus: 'pending_link' },
+            })
+            stats.pendingLink++
+          }
         }
 
         results.push({ accountId: account.id, success: true, count: syncResult.notes.length })
@@ -131,7 +199,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ success: true, data: results })
+    return NextResponse.json({ success: true, data: { results, stats } })
   } catch (error) {
     console.error('Sync error:', error)
     return NextResponse.json({ success: false, error: '服务器错误' }, { status: 500 })
