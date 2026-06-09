@@ -43,3 +43,5 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     return state.accounts.find((a) => a.id === state.selectedAccountId)
   },
 }))
+// @ts-ignore
+if (typeof window !== 'undefined') { window.__ZUSTAND_ACCOUNT_STORE__ = useAccountStore }

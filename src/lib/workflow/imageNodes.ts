@@ -1,18 +1,22 @@
 // src/lib/workflow/imageNodes.ts
 
-import puppeteer from 'puppeteer-core'
-import chromium from '@sparticuz/chromium'
 import { callMiniMax } from '../ai/client'
 import { getImagePromptGenerationPrompt } from '../ai/prompts'
 import { generateImage, ImageModel } from '../ai/image'
-import { generateNoteCardHtml, type HtmlTemplateData } from './htmlTemplate'
-import { htmlStyles, type HtmlStyle } from './htmlStyles'
 import type { ImageWorkflowState } from './state'
 
 // 配图提示词生成节点
 export async function imagePromptGenerationNode(state: ImageWorkflowState): Promise<Partial<ImageWorkflowState>> {
   try {
-    const { content } = state
+    const { content, imagePrompt } = state
+
+    // 如果已有提示词（用户已确认），直接使用不重新生成
+    if (imagePrompt) {
+      return {
+        imagePrompt,
+        currentStep: 'image_prompt_generation'
+      }
+    }
 
     // 提取正文内容
     const contentMatch = (content || '').match(/正文：([\s\S]+?)(?:标签：|$)/)
@@ -65,10 +69,8 @@ export async function imageGenerationNode(state: ImageWorkflowState): Promise<Pa
   }
 }
 
-// HTML 截图节点
+// HTML 截图节点 — 生成小红书风格卡片 SVG（无需浏览器）
 export async function htmlScreenshotNode(state: ImageWorkflowState): Promise<Partial<ImageWorkflowState>> {
-  let browser: any = null
-
   try {
     const { content, title, htmlStyle = 'magazine' } = state
 
@@ -85,54 +87,63 @@ export async function htmlScreenshotNode(state: ImageWorkflowState): Promise<Par
     const parsedContent = contentMatch?.[1]?.trim() || content || ''
     const parsedTags = tagsMatch?.[1]?.split(',').map((t: string) => t.trim()).filter(Boolean) || []
 
-    // 生成 HTML
-    const htmlData: HtmlTemplateData = {
-      title: parsedTitle,
-      content: parsedContent,
-      tags: parsedTags,
-      style: (htmlStyle as HtmlStyle) || 'magazine'
-    }
-    const html = generateNoteCardHtml(htmlData)
+    // 截断正文
+    const maxContentLength = 200
+    const displayContent = parsedContent.length > maxContentLength
+      ? parsedContent.substring(0, maxContentLength) + '...'
+      : parsedContent
 
-    // 启动浏览器并截图
-    browser = await puppeteer.launch({
-      args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
-      defaultViewport: { width: 500, height: 600 },
-      executablePath: await chromium.executablePath(),
-      headless: "shell"
-    })
+    // 生成标签 HTML（SVG foreignObject 不支持，改内嵌纯色块）
+    const tagsStr = parsedTags.slice(0, 5).map(t => `#${t}`).join(' · ')
 
-    const page = await browser.newPage()
+    // 构建 SVG 卡片（500x600，模拟小红书风格分享卡）
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="600" viewBox="0 0 500 600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff5f5"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="avatar" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b6b"/>
+      <stop offset="100%" stop-color="#ff4757"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="500" height="600" rx="24" fill="url(#bg)"/>
+  <rect x="20" y="20" width="460" height="560" rx="16" fill="none" stroke="#ffe0e0" stroke-width="1"/>
+  <!-- 头部：头像+关注 -->
+  <circle cx="60" cy="70" r="20" fill="url(#avatar)"/>
+  <text x="70" y="75" font-size="16" fill="white" font-weight="bold" text-anchor="middle" font-family="Arial, sans-serif">美</text>
+  <text x="95" y="75" font-size="14" fill="#333" font-weight="600" font-family="Arial, sans-serif">美食探索家</text>
+  <rect x="390" y="55" width="70" height="30" rx="15" fill="#ff4757"/>
+  <text x="425" y="75" font-size="12" fill="white" text-anchor="middle" font-family="Arial, sans-serif">关注</text>
+  <!-- 标题 -->
+  <text x="40" y="140" font-size="20" fill="#1a1a1a" font-weight="bold" font-family="Arial, sans-serif" width="420">${escapeXml(parsedTitle)}</text>
+  <!-- 正文 -->
+  <text x="40" y="180" font-size="14" fill="#666" line-height="1.6" font-family="Arial, sans-serif" width="420">${escapeXml(displayContent)}</text>
+  <!-- 标签 -->
+  ${parsedTags.length > 0 ? `<text x="40" y="520" font-size="13" fill="#ff4757" font-family="Arial, sans-serif">${escapeXml(tagsStr)}</text>` : ''}
+  <!-- 底部 -->
+  <line x1="40" y1="540" x2="460" y2="540" stroke="#f0f0f0" stroke-width="1"/>
+  <text x="40" y="565" font-size="12" fill="#999" font-family="Arial, sans-serif">👍 0    💬 0    ⭐ 0</text>
+  <text x="440" y="565" font-size="12" fill="#ff4757" font-weight="600" text-anchor="end" font-family="Arial, sans-serif">小红书</text>
+</svg>`
 
-    // 设置 HTML 内容
-    await page.setContent(html, { waitUntil: 'networkidle0' })
-
-    // 等待字体加载
-    await page.evaluateHandle('document.fonts.ready')
-
-    // 截图
-    const screenshotBuffer = await page.screenshot({
-      type: 'png',
-      fullPage: false
-    })
-
-    // 转换为 base64
-    const base64Image = `data:image/png;base64,${screenshotBuffer.toString('base64')}`
-
-    await browser.close()
+    const base64Image = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
 
     return {
       htmlScreenshotUrl: base64Image,
       currentStep: 'done'
     }
   } catch (error: any) {
-    if (browser) {
-      await browser.close().catch(() => {})
-    }
     console.error('HTML screenshot error:', error)
     return {
       error: error.message || 'HTML 截图生成失败',
       currentStep: 'error'
     }
   }
+}
+
+function escapeXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }

@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const { accounts, setAccounts, addAccount, updateAccount, deleteAccount } = useAccountStore()
   const [stats, setStats] = useState({ published: 0, pending: 0 })
   const [showAccountModal, setShowAccountModal] = useState(false)
+  const [showIdGuideModal, setShowIdGuideModal] = useState(false)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [accountForm, setAccountForm] = useState({
     name: '',
@@ -215,11 +216,23 @@ export default function DashboardPage() {
                 value={accountForm.name}
                 onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
               />
-              <Input
-                label="小红书 ID"
-                value={accountForm.xiaohongshuId}
-                onChange={(e) => setAccountForm({ ...accountForm, xiaohongshuId: e.target.value })}
-              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <label className="block text-sm font-medium text-gray-500">小红书 ID</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowIdGuideModal(true)}
+                    className="text-xs text-primary hover:text-primary/80 cursor-pointer"
+                  >
+                    如何获取？
+                  </button>
+                </div>
+                <Input
+                  value={accountForm.xiaohongshuId}
+                  onChange={(e) => setAccountForm({ ...accountForm, xiaohongshuId: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
               <Input
                 label="联系邮箱"
                 type="email"
@@ -265,6 +278,46 @@ export default function DashboardPage() {
             <Button onClick={handleSaveAccount}>
               保存
             </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* ID Guide Modal */}
+      <Modal open={showIdGuideModal} onOpenChange={setShowIdGuideModal}>
+        <ModalContent>
+          <ModalHeader>
+            <h3>🔍 获取小红书用户 ID</h3>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-6">
+              <div>
+                <div className="font-medium text-primary mb-2">方法一：从用户主页 URL 获取</div>
+                <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+                  <li>打开小红书网页版：<a href="https://www.xiaohongshu.com" target="_blank" rel="noopener" className="text-primary hover:underline">https://www.xiaohongshu.com</a></li>
+                  <li>搜索并进入目标用户主页</li>
+                  <li>查看浏览器地址栏，URL 格式如下：<br/>
+                    <code className="inline-block bg-gray-100 px-2 py-1 rounded mt-1 text-xs break-all">https://www.xiaohongshu.com/user/profile/<span className="text-primary font-medium">5ff0e6410000000001005f1a</span></code>
+                  </li>
+                  <li>提取用户 ID：URL 中 <code className="bg-gray-100 px-1 rounded">/user/profile/</code> 后面的字符串就是用户 ID<br/>
+                    <span className="text-primary font-medium">示例：5ff0e6410000000001005f1a</span>
+                  </li>
+                </ol>
+              </div>
+              <div>
+                <div className="font-medium text-primary mb-2">方法二：从手机分享链接获取</div>
+                <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+                  <li>在小红书 APP 中打开用户主页</li>
+                  <li>点击分享按钮，选择"复制链接"</li>
+                  <li>分享链接格式通常为：<br/>
+                    <code className="inline-block bg-gray-100 px-2 py-1 rounded mt-1 text-xs break-all">https://www.xiaohongshu.com/user/profile/<span className="text-primary font-medium">5ff0e6410000000001005f1a</span>?xhsshare=xxx</code>
+                  </li>
+                  <li>提取用户 ID：<code className="bg-gray-100 px-1 rounded">/user/profile/</code> 后面 <code className="bg-gray-100 px-1 rounded">?</code> 前面的部分</li>
+                </ol>
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={() => setShowIdGuideModal(false)}>知道了</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

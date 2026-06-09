@@ -2,8 +2,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 const navItems = [
   { href: '/', icon: '📊', label: '工作台' },
@@ -19,6 +20,15 @@ interface SidebarProps {
 
 export function Sidebar({ userName = '用户', planInfo = '个人版' }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const logout = useAuthStore((state) => state.logout)
+
+  const handleLogout = () => {
+    if (confirm('确定要退出登录吗？')) {
+      logout()
+      router.push('/login')
+    }
+  }
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-[220px] bg-white border-r border-gray-200 flex flex-col z-40">
@@ -63,6 +73,13 @@ export function Sidebar({ userName = '用户', planInfo = '个人版' }: Sidebar
           <div className="text-sm font-medium truncate">{userName}</div>
           <div className="text-xs text-gray-400">{planInfo}</div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+          title="退出登录"
+        >
+          🚪
+        </button>
       </div>
     </aside>
   )
