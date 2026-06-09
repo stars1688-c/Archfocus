@@ -976,6 +976,13 @@ export default function CreatePage() {
                     </div>
                   </div>
                 )}
+
+                {images.length === 0 && !generatedImageUrl && (
+                  <div className="bg-gray-50 rounded-xl p-4 text-center text-gray-400">
+                    无配图
+                  </div>
+                )}
+
                 {imagePrompt && !generatedImageUrl && (
                   <div className="bg-gray-50 rounded-xl p-4">
                     <div className="font-medium mb-2">配图提示词</div>
