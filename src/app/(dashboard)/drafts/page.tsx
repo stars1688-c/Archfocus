@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Modal, ModalContent, ModalHeader, ModalBody } from '@/components/ui/modal'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
@@ -18,6 +19,7 @@ export default function DraftsPage() {
   const [pendingNotes, setPendingNotes] = useState<NoteWithAccount[]>([])
   const [publishedNotes, setPublishedNotes] = useState<NoteWithAccount[]>([])
   const [loading, setLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [selectedNote, setSelectedNote] = useState<NoteWithAccount | null>(null)
 
   useEffect(() => {
@@ -44,6 +46,29 @@ export default function DraftsPage() {
       console.error('Load notes error:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSync = async () => {
+    if (!selectedAccountId) {
+      alert('请先选择一个账号进行同步')
+      return
+    }
+
+    setSyncing(true)
+    try {
+      const res = await api.post('/sync', { accountIds: [selectedAccountId] })
+      if (res.data.success) {
+        alert('同步成功！')
+        loadNotes() // 重新加载笔记
+      } else {
+        alert(res.data.error || '同步失败')
+      }
+    } catch (error) {
+      console.error('Sync error:', error)
+      alert('同步失败，请重试')
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -77,16 +102,33 @@ export default function DraftsPage() {
     }
   }
 
-  const NoteCard = ({ note }: { note: NoteWithAccount }) => (
+  // 根据 syncStatus 显示 Badge
+const getSyncStatusBadge = (note: NoteWithAccount) => {
+  if (note.platformSource === 'external') {
+    return <Badge variant="blue">非平台创作</Badge>
+  }
+  if (note.syncStatus === 'pending_link') {
+    return <Badge variant="orange">非平台创作，待关联</Badge>
+  }
+  if (note.syncStatus === 'linked') {
+    return <Badge variant="green">平台创作，已关联</Badge>
+  }
+  return null
+}
+
+const NoteCard = ({ note }: { note: NoteWithAccount }) => (
     <div
       className="p-4 border border-gray-100 rounded-xl hover:border-primary/30 cursor-pointer transition-colors"
       onClick={() => setSelectedNote(note)}
     >
       <div className="flex items-start justify-between mb-2">
         <h4 className="font-medium line-clamp-2 flex-1">{note.title}</h4>
-        {note.status === 'published' && (
-          <Badge variant="green">已发布</Badge>
-        )}
+        <div className="flex items-center gap-1">
+          {note.status === 'published' && getSyncStatusBadge(note)}
+          {note.status === 'published' && (
+            <Badge variant="green">已发布</Badge>
+          )}
+        </div>
       </div>
       {note.account && (
         <div className="text-xs text-gray-400 mb-2">{note.account.name}</div>
@@ -107,19 +149,29 @@ export default function DraftsPage() {
       <Header
         title="笔记库"
         rightContent={
-          <Select value={selectedAccountId || 'all'} onValueChange={(v) => selectAccount(v === 'all' ? null : v)}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="全部账号" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部账号</SelectItem>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing || !selectedAccountId}
+            >
+              {syncing ? '同步中...' : '🔄 同步笔记'}
+            </Button>
+            <Select value={selectedAccountId || 'all'} onValueChange={(v) => selectAccount(v === 'all' ? null : v)}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="全部账号" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部账号</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         }
       />
 
