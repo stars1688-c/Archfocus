@@ -62,9 +62,13 @@ export default function CreatePage() {
 
   // Image generation states
   const [imageType, setImageType] = useState<'ai_prompt' | 'html_screenshot'>('ai_prompt')
-  const [imageModel, setImageModel] = useState<'gpt-image-2' | 'doubao-seedream-5-0-lite'>('gpt-image-2')
+  const [imageModel, setImageModel] = useState<string>('gpt-image-2')
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
   const [imageGenerating, setImageGenerating] = useState(false)
+  const [promptConfirmed, setPromptConfirmed] = useState(false) // 提示词是否已确认
+
+  // Toast 提示状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' })
 
   // Step 1 状态
   const [dataSource, setDataSource] = useState<DataSource>({
@@ -339,12 +343,14 @@ export default function CreatePage() {
 
     try {
       const fullContent = `标题：${title}\n正文：${humanizedContent || content}\n标签：[]`
+      const confirmedPrompt = promptConfirmed ? (imagePrompt || generatedImagePrompt) : undefined
 
       const res = await api.post('/workflow/image', {
         content: fullContent,
         title,
         imageType,
-        imageModel
+        imageModel,
+        imagePrompt: confirmedPrompt // 传递已确认的提示词
       })
 
       if (res.data.success && res.data.data) {
@@ -441,9 +447,12 @@ export default function CreatePage() {
   const copyText = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      alert('已复制到剪贴板')
+      setToast({ show: true, message: '已复制到剪贴板', type: 'success' })
+      setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 2000)
     } catch (err) {
       console.error('复制失败:', err)
+      setToast({ show: true, message: '复制失败，请重试', type: 'error' })
+      setTimeout(() => setToast({ show: false, message: '', type: 'error' }), 2000)
     }
   }
 
@@ -452,17 +461,24 @@ export default function CreatePage() {
       <Header
         title="创作新笔记"
         rightContent={
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-gray-500">发布账号：</span>
-            <span className="font-medium text-primary">
-              {selectedAccount?.name || '未选择'}
-            </span>
-            {selectedAccount?.xiaohongshuId && (
-              <span className="text-gray-400 text-xs">
-                小红书 ID: {selectedAccount.xiaohongshuId}
-              </span>
-            )}
-          </div>
+          <Select value={selectedAccountId || ''} onValueChange={(v) => selectAccount(v)}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="选择账号" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.length === 0 ? (
+                <SelectItem value="no-account" disabled>
+                  暂无账号
+                </SelectItem>
+              ) : (
+                accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         }
       />
 
@@ -539,6 +555,11 @@ export default function CreatePage() {
                     <span className="text-sm font-medium">✨ AI 智能选题</span>
                     {aiLoading && <span className="text-xs text-primary">生成中...</span>}
                   </div>
+                  {!selectedAccount && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-sm text-amber-700">
+                      ⚠️ 请先在右上角选择一个小红书账号，才能使用 AI 生成功能
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -564,6 +585,11 @@ export default function CreatePage() {
 
             {currentStep === 1 && (
               <div className="space-y-4">
+                {!selectedAccount && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+                    ⚠️ 请先在右上角选择一个小红书账号，才能使用 AI 生成功能
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-medium">笔记内容</h3>
                   <div className="flex gap-2">
@@ -622,7 +648,7 @@ export default function CreatePage() {
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => setImageType('ai_prompt')}
+                      onClick={() => { setImageType('ai_prompt'); setPromptConfirmed(false); }}
                       className={`flex-1 p-4 rounded-xl border-2 transition-colors ${
                         imageType === 'ai_prompt'
                           ? 'border-primary bg-primary-bg text-primary'
@@ -635,7 +661,7 @@ export default function CreatePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setImageType('html_screenshot')}
+                      onClick={() => { setImageType('html_screenshot'); setPromptConfirmed(false); }}
                       className={`flex-1 p-4 rounded-xl border-2 transition-colors ${
                         imageType === 'html_screenshot'
                           ? 'border-primary bg-primary-bg text-primary'
@@ -650,16 +676,67 @@ export default function CreatePage() {
                 </div>
 
                 {/* AI 绘图选项 */}
-                {imageType === 'ai_prompt' && (
-                  <div>
+                {imageType === 'ai_prompt' && !promptConfirmed && (
+                  <div className="space-y-4">
+                    {/* 步骤1：先生成提示词 */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <div className="text-sm font-medium text-gray-700 mb-2">📝 笔记文案预览</div>
+                      <div className="text-sm text-gray-600 whitespace-pre-wrap line-clamp-4">
+                        {humanizedContent || content || '暂无文案，请先在"文案"步骤生成内容'}
+                      </div>
+                    </div>
+
+                    {!generatedImagePrompt && !imagePrompt && (
+                      <Button
+                        onClick={handleAIGenerateImagePrompt}
+                        disabled={aiLoading || (!humanizedContent && !content)}
+                        className="w-full"
+                      >
+                        {aiLoading ? '生成中...' : '💡 生成绘图提示词'}
+                      </Button>
+                    )}
+
+                    {/* 步骤2：编辑提示词 */}
+                    {(generatedImagePrompt || imagePrompt) && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500 mb-1.5">
+                            ✏️ 提示词编辑（可修改）
+                          </label>
+                          <textarea
+                            className="w-full h-24 p-3 border border-gray-200 rounded-xl outline-none focus:border-primary resize-none text-sm"
+                            placeholder="AI 生成的绘图提示词..."
+                            value={imagePrompt || generatedImagePrompt}
+                            onChange={(e) => setImagePrompt(e.target.value)}
+                          />
+                        </div>
+                        <Button
+                          onClick={() => setPromptConfirmed(true)}
+                          className="w-full"
+                        >
+                          ✅ 确认提示词，继续生成图片
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 步骤3：选择模型并生成图片 */}
+                {imageType === 'ai_prompt' && promptConfirmed && (
+                  <div className="space-y-4">
+                    <div className="bg-green-50 rounded-xl p-3 text-sm text-green-700">
+                      ✅ 提示词已确认，可以生成图片了
+                    </div>
+
                     <label className="block text-sm font-medium text-gray-500 mb-2">绘图模型</label>
                     <Select value={imageModel} onValueChange={(v: any) => setImageModel(v)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="gpt-image-2">GPT-Image 2</SelectItem>
+                        <SelectItem value="gpt-image-2">GPT-Image 2（默认）</SelectItem>
                         <SelectItem value="doubao-seedream-5-0-lite">Seedream 5.0</SelectItem>
+                        <SelectItem value="minimax-image-01">MiniMax Image-01</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -677,32 +754,86 @@ export default function CreatePage() {
                         <span className="text-sm text-gray-500">张（封面尺寸 3:4）</span>
                       </div>
                     </div>
+
+                    <Button
+                      onClick={handleGenerateImage}
+                      disabled={imageGenerating}
+                      className="w-full"
+                    >
+                      {imageGenerating ? '生成中...' : '✨ 生成图片'}
+                    </Button>
+
+                    {/* 跳过配图选项 */}
+                    {!generatedImageUrl && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setImages([])
+                          setCurrentStep(3)
+                        }}
+                        className="w-full mt-2 text-gray-400"
+                      >
+                        跳过配图
+                      </Button>
+                    )}
                   </div>
                 )}
 
-                {/* 提示词显示 */}
-                {(generatedImagePrompt || imagePrompt) && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1.5">
-                      AI 绘图提示词
-                    </label>
-                    <textarea
-                      className="w-full h-24 p-3 border border-gray-200 rounded-xl outline-none focus:border-primary resize-none text-sm"
-                      placeholder="AI 生成的绘图提示词..."
-                      value={imagePrompt || generatedImagePrompt}
-                      onChange={(e) => setImagePrompt(e.target.value)}
-                    />
+                {/* HTML 截图选项 */}
+                {imageType === 'html_screenshot' && (
+                  <div className="space-y-4">
+                    <div className="form-group">
+                      <label className="block text-sm font-medium text-gray-500 mb-1.5">选择风格</label>
+                      <Select value={htmlStyle} onValueChange={(v: any) => setHtmlStyle(v)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="magazine">杂志风</SelectItem>
+                          <SelectItem value="cream">奶油风</SelectItem>
+                          <SelectItem value="forest">森林风</SelectItem>
+                          <SelectItem value="minimal">简约风</SelectItem>
+                          <SelectItem value="dopamine">多巴胺风</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="block text-sm font-medium text-gray-500 mb-1.5">
+                        输入内容（万字以内）
+                      </label>
+                      <textarea
+                        className="w-full h-32 p-3 border border-gray-200 rounded-xl outline-none focus:border-primary resize-none text-sm"
+                        placeholder="输入你想要生成图片的内容..."
+                        value={content}
+                        onChange={(e) => setContent(e.target.value.slice(0, 10000))}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">{content.length}/10000</p>
+                    </div>
+
+                    <Button
+                      onClick={handleGenerateImage}
+                      disabled={imageGenerating || !content.trim()}
+                      className="w-full"
+                    >
+                      {imageGenerating ? '生成中...' : '✨ 生成图片'}
+                    </Button>
+
+                    {/* 跳过配图选项 */}
+                    {!generatedImageUrl && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setImages([])
+                          setCurrentStep(3)
+                        }}
+                        className="w-full mt-2 text-gray-400"
+                      >
+                        跳过配图
+                      </Button>
+                    )}
                   </div>
                 )}
-
-                {/* 生成按钮 */}
-                <Button
-                  onClick={handleGenerateImage}
-                  disabled={imageGenerating || (!humanizedContent && !content)}
-                  className="w-full"
-                >
-                  {imageGenerating ? '生成中...' : '✨ 生成配图'}
-                </Button>
 
                 {/* 图片预览网格 */}
                 {generatedImages.length > 0 && (
@@ -743,7 +874,12 @@ export default function CreatePage() {
                 {/* 生成的图片预览 */}
                 {generatedImageUrl && (
                   <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-500 mb-2">生成结果</label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-gray-500">生成结果</label>
+                      <Button variant="outline" size="sm" onClick={() => copyText(generatedImageUrl)}>
+                        📋 复制图片链接
+                      </Button>
+                    </div>
                     <div className="border border-gray-200 rounded-xl p-2 bg-gray-50">
                       <img
                         src={generatedImageUrl}
@@ -825,7 +961,12 @@ export default function CreatePage() {
 
                 {generatedImageUrl && (
                   <div className="bg-gray-50 rounded-xl p-4">
-                    <div className="font-medium mb-2">配图</div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium">配图</div>
+                      <Button variant="outline" size="sm" onClick={() => copyText(generatedImageUrl)}>
+                        📋 复制图片链接
+                      </Button>
+                    </div>
                     <div className="flex justify-center">
                       <img
                         src={generatedImageUrl}
@@ -1047,6 +1188,15 @@ export default function CreatePage() {
           handleRegenerateWithFeedback()
         }}
       />
+
+      {/* Toast 提示 */}
+      {toast.show && (
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-white text-sm ${
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        }`}>
+          {toast.message}
+        </div>
+      )}
     </>
   )
 }
