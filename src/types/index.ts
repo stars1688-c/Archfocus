@@ -36,6 +36,8 @@ export interface Note {
   publishAt?: Date
   publishedAt?: Date
   xiaohongshuUrl?: string
+  platformSource: 'platform' | 'external'
+  syncStatus: 'linked' | 'pending_link' | 'not_found'
   createdAt: Date
   updatedAt: Date
 }
