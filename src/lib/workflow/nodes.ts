@@ -6,6 +6,7 @@ import { getTopicGenerationPrompt, getContentGenerationPrompt, getHumanizerPromp
 import type { ContentWorkflowState, StepLog } from './state'
 import { createStepLog } from './state'
 import type { Topic, GeneratedContent } from '../ai/types'
+import { logStepStart, logStepSuccess, logStepError, logStepSkipped, logInfo, logWarn } from './logger'
 
 // 选题生成节点
 export async function topicGenerationNode(state: ContentWorkflowState): Promise<Partial<ContentWorkflowState>> {
@@ -15,16 +16,16 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
   // 如果已有选题（文案生成模式），跳过选题生成
   if (state.selectedTopic) {
     const skipLog = createStepLog(stepName, 'skipped', `已存在选题「${state.selectedTopic}」，跳过`)
-    console.log(`[${stepName}] 跳过，已有选题:`, state.selectedTopic?.substring(0, 30))
+    logStepSkipped(stepName, `已有选题「${state.selectedTopic?.substring(0, 30)}」`)
     return { currentStep: 'topic_generation', stepLogs: [...logs, skipLog] }
   }
 
   const stepStart = new Date().toISOString()
-  console.log(`[${stepName}] ===== 开始 =====`)
+  logStepStart(stepName)
 
   try {
     const { account, searchEnabled, hotKeywords, excludeTopics } = state
-    console.log(`[${stepName}] searchEnabled:`, searchEnabled, 'hotKeywords:', hotKeywords?.length || 0)
+    logInfo(stepName, `searchEnabled=${searchEnabled}, hotKeywords=${hotKeywords?.length || 0}`)
 
     let userMessage = `请为上述账号人设生成5个小红书选题。`
     if (excludeTopics && excludeTopics.length > 0) {
@@ -35,7 +36,7 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
     let hotWordsContext = ''
     if (hotKeywords && hotKeywords.length > 0) {
       hotWordsContext = `\n\n当前小红书行业热点词：\n${hotKeywords.map((kw, i) => `${i + 1}. ${kw}`).join('\n')}`
-      console.log(`[${stepName}] 热点词:`, hotKeywords.join(', '))
+      logInfo(stepName, `热点词: ${hotKeywords.join(', ')}`)
     }
 
     // 如果启用了搜索，先获取搜索结果
@@ -43,7 +44,7 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
     let searchLog = ''
     if (searchEnabled && (account.position || account.audience)) {
       const searchStart = Date.now()
-      console.log(`[${stepName}] 开始联网搜索...`)
+      logInfo(stepName, '开始联网搜索...')
       try {
         const { execSync } = require('child_process')
         const keywords = [account.position, account.audience].filter(Boolean).join(' ')
@@ -61,9 +62,9 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
         }
       } catch (e: any) {
         searchLog = `联网搜索失败: ${e.message}`
-        console.error(`[${stepName}] 搜索错误:`, e.message)
+        logWarn(stepName, `搜索错误: ${e.message}`)
       }
-      console.log(`[${stepName}] ${searchLog}`)
+      logInfo(stepName, searchLog)
     }
 
     if (searchContext) {
@@ -74,15 +75,15 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
       userMessage += hotWordsContext
     }
 
-    console.log(`[${stepName}] 调用 MiniMax API...`)
+    logInfo(stepName, '调用 MiniMax API...')
     const apiStart = Date.now()
     const response = await callMiniMax(
       getTopicGenerationPrompt(account),
       userMessage
     )
     const apiDuration = Date.now() - apiStart
-    console.log(`[${stepName}] MiniMax 返回（${apiDuration}ms），文本长度:`, response.text.length)
-    console.log(`[${stepName}] 内容预览:`, response.text.substring(0, 200))
+    logInfo(stepName, `MiniMax 返回（${apiDuration}ms），文本长度: ${response.text.length}`)
+    logInfo(stepName, `内容预览: ${response.text.substring(0, 200)}`)
 
     // 解析选题 - 支持多种格式
     const topics: Topic[] = []
@@ -154,7 +155,7 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
 
     const topicsCount = topics.slice(0, 5).length
     const successLog = createStepLog(stepName, 'success', `生成 ${topicsCount} 个选题（miniMax ${apiDuration}ms）`, stepStart)
-    console.log(`[${stepName}] ===== 完成，生成 ${topicsCount} 个选题 =====`)
+    logStepSuccess(stepName, `生成 ${topicsCount} 个选题`, apiDuration)
 
     return {
       topics: topics.slice(0, 5),
@@ -162,7 +163,7 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
       stepLogs: [...logs, successLog]
     }
   } catch (error: any) {
-    console.error(`[${stepName}] 错误:`, error.message)
+    logStepError(stepName, error.message || '选题生成失败', Date.now() - new Date(stepStart).getTime())
     const errorLog = createStepLog(stepName, 'error', error.message || '选题生成失败', stepStart)
     return {
       error: error.message || '选题生成失败',
@@ -177,7 +178,7 @@ export async function contentGenerationNode(state: ContentWorkflowState): Promis
   const logs: StepLog[] = state.stepLogs || []
   const stepName = '文案生成'
   const stepStart = new Date().toISOString()
-  console.log(`[${stepName}] ===== 开始 =====`)
+  logStepStart(stepName)
 
   try {
     const { account, selectedTopic, searchResults, userRequirements, userFeedback, rawContent } = state
@@ -188,7 +189,7 @@ export async function contentGenerationNode(state: ContentWorkflowState): Promis
 
     let userMessage: string
     const mode = userFeedback && rawContent ? '修改' : '全新生成'
-    console.log(`[${stepName}] 模式: ${mode}, 选题:`, selectedTopic.substring(0, 30))
+    logInfo(stepName, `模式: ${mode}, 选题: ${selectedTopic.substring(0, 30)}`)
 
     if (userFeedback && rawContent) {
       userMessage = `请根据用户反馈修改以下文案。\n\n原文案：\n${rawContent}\n\n用户反馈：${userFeedback}\n\n请保持文案风格一致，只修改用户指出的问题，不要重新生成整篇文案。`
@@ -202,14 +203,14 @@ export async function contentGenerationNode(state: ContentWorkflowState): Promis
       }
     }
 
-    console.log(`[${stepName}] 调用 MiniMax API...`)
+    logInfo(stepName, '调用 MiniMax API...')
     const apiStart = Date.now()
     const response = await callMiniMax(
       getContentGenerationPrompt(account),
       userMessage
     )
     const apiDuration = Date.now() - apiStart
-    console.log(`[${stepName}] MiniMax 返回（${apiDuration}ms），文本长度:`, response.text.length)
+    logInfo(stepName, `MiniMax 返回（${apiDuration}ms），文本长度: ${response.text.length}`)
 
     // 解析文案
     const text = response.text
@@ -223,7 +224,7 @@ export async function contentGenerationNode(state: ContentWorkflowState): Promis
       tags: tagsMatch?.[1]?.split(',').map((t: string) => t.trim()).filter(Boolean) || []
     }
 
-    console.log(`[${stepName}] 解析完成: 标题=${content.title.substring(0, 20)}... 正文=${content.content.length}字 标签=${content.tags.length}个`)
+    logInfo(stepName, `解析完成: 标题=${content.title.substring(0, 20)}... 正文=${content.content.length}字 标签=${content.tags.length}个`)
     const successLog = createStepLog(stepName, 'success', `文案生成完成（${content.content.length}字，${content.tags.length}个标签，${apiDuration}ms）`, stepStart)
 
     return {
@@ -232,7 +233,7 @@ export async function contentGenerationNode(state: ContentWorkflowState): Promis
       stepLogs: [...logs, successLog]
     }
   } catch (error: any) {
-    console.error(`[${stepName}] 错误:`, error.message)
+    logStepError(stepName, error.message || '步骤失败', Date.now() - new Date(stepStart).getTime())
     const errorLog = createStepLog(stepName, 'error', error.message || '文案生成失败', stepStart)
     return {
       error: error.message || '文案生成失败',
@@ -247,7 +248,7 @@ export async function humanizerNode(state: ContentWorkflowState): Promise<Partia
   const logs: StepLog[] = state.stepLogs || []
   const stepName = 'AI 润色'
   const stepStart = new Date().toISOString()
-  console.log(`[${stepName}] ===== 开始 =====`)
+  logStepStart(stepName)
 
   try {
     const { rawContent } = state
@@ -259,9 +260,9 @@ export async function humanizerNode(state: ContentWorkflowState): Promise<Partia
     // 提取正文内容进行润色
     const contentMatch = rawContent.match(/正文：([\s\S]+?)(?:标签：|$)/)
     const originalBody = contentMatch?.[1]?.trim() || rawContent
-    console.log(`[${stepName}] 原始文案长度: ${originalBody.length}字`)
+    logInfo(stepName, `原始文案长度: ${originalBody.length}字`)
 
-    console.log(`[${stepName}] 调用 MiniMax API...`)
+    logInfo(stepName, '调用 MiniMax API...')
     const apiStart = Date.now()
     const response = await callMiniMax(
       getHumanizerPrompt(),
@@ -270,7 +271,7 @@ export async function humanizerNode(state: ContentWorkflowState): Promise<Partia
     const apiDuration = Date.now() - apiStart
 
     const humanized = stripMarkdown(response.text)
-    console.log(`[${stepName}] 润色完成（${apiDuration}ms），字数: ${humanized.length}`)
+    logInfo(stepName, `润色完成（${apiDuration}ms），字数: ${humanized.length}`)
     const successLog = createStepLog(stepName, 'success', `润色完成（${originalBody.length}字 → ${humanized.length}字，${apiDuration}ms）`, stepStart)
 
     return {
@@ -279,7 +280,7 @@ export async function humanizerNode(state: ContentWorkflowState): Promise<Partia
       stepLogs: [...logs, successLog]
     }
   } catch (error: any) {
-    console.error(`[${stepName}] 错误:`, error.message)
+    logStepError(stepName, error.message || '步骤失败', Date.now() - new Date(stepStart).getTime())
     const errorLog = createStepLog(stepName, 'error', error.message || '润色失败', stepStart)
     return {
       error: error.message || '润色失败',
@@ -294,7 +295,7 @@ export async function sensitiveCheckNode(state: ContentWorkflowState): Promise<P
   const logs: StepLog[] = state.stepLogs || []
   const stepName = '敏感词检测'
   const stepStart = new Date().toISOString()
-  console.log(`[${stepName}] ===== 开始 =====`)
+  logStepStart(stepName)
 
   try {
     const { humanizedContent } = state
@@ -303,15 +304,15 @@ export async function sensitiveCheckNode(state: ContentWorkflowState): Promise<P
       throw new Error('无待检测文案')
     }
 
-    console.log(`[${stepName}] 检测文本长度: ${humanizedContent.length}字`)
+    logInfo(stepName, `检测文本长度: ${humanizedContent.length}字`)
     const checkStart = Date.now()
     const result = await checkSensitiveWords(humanizedContent)
     const checkDuration = Date.now() - checkStart
 
     if (result.passed) {
-      console.log(`[${stepName}] 通过（${checkDuration}ms）`)
+      logInfo(stepName, `通过（${checkDuration}ms）`)
     } else {
-      console.log(`[${stepName}] 未通过，违规词:`, result.illegalWords?.map(w => w.word).join(', '))
+      logWarn(stepName, `未通过，违规词: ${result.illegalWords?.map(w => w.word).join(', ')}`)
     }
 
     const status = result.passed ? '通过' : `发现 ${result.illegalWords?.length || 0} 个违规词`
@@ -326,7 +327,7 @@ export async function sensitiveCheckNode(state: ContentWorkflowState): Promise<P
       stepLogs: [...logs, successLog]
     }
   } catch (error: any) {
-    console.error(`[${stepName}] 错误:`, error.message)
+    logStepError(stepName, error.message || '步骤失败', Date.now() - new Date(stepStart).getTime())
     const errorLog = createStepLog(stepName, 'error', error.message || '敏感词检测失败', stepStart)
     return {
       error: error.message || '敏感词检测失败',
