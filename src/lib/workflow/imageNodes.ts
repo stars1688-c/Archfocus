@@ -3,44 +3,68 @@
 import { callMiniMax } from '../ai/client'
 import { getImagePromptGenerationPrompt } from '../ai/prompts'
 import { generateImage, ImageModel } from '../ai/image'
-import type { ImageWorkflowState } from './state'
+import type { ImageWorkflowState, StepLog } from './state'
+import { createStepLog } from './state'
 
 // 配图提示词生成节点
 export async function imagePromptGenerationNode(state: ImageWorkflowState): Promise<Partial<ImageWorkflowState>> {
+  const logs: StepLog[] = state.stepLogs || []
+  const stepName = '配图提示词'
+  const stepStart = new Date().toISOString()
+  console.log(`[${stepName}] ===== 开始 =====`)
+
   try {
     const { content, imagePrompt } = state
 
     // 如果已有提示词（用户已确认），直接使用不重新生成
     if (imagePrompt) {
+      console.log(`[${stepName}] 已有提示词，跳过生成`)
+      const skipLog = createStepLog(stepName, 'skipped', '已有配图提示词，跳过', stepStart)
       return {
         imagePrompt,
-        currentStep: 'image_prompt_generation'
+        currentStep: 'image_prompt_generation',
+        stepLogs: [...logs, skipLog]
       }
     }
 
     // 提取正文内容
     const contentMatch = (content || '').match(/正文：([\s\S]+?)(?:标签：|$)/)
     const contentText = contentMatch?.[1]?.trim() || content || ''
+    console.log(`[${stepName}] 内容长度: ${contentText.length}字`)
 
+    console.log(`[${stepName}] 调用 MiniMax API...`)
+    const apiStart = Date.now()
     const response = await callMiniMax(
       getImagePromptGenerationPrompt(),
       `请根据以下笔记内容生成配图提示词：\n\n${contentText}`
     )
+    const apiDuration = Date.now() - apiStart
+    console.log(`[${stepName}] 提示词生成完成（${apiDuration}ms）`)
 
+    const successLog = createStepLog(stepName, 'success', `配图提示词生成完成（${apiDuration}ms）`, stepStart)
     return {
       imagePrompt: response.text,
-      currentStep: 'image_prompt_generation'
+      currentStep: 'image_prompt_generation',
+      stepLogs: [...logs, successLog]
     }
   } catch (error: any) {
+    console.error(`[${stepName}] 错误:`, error.message)
+    const errorLog = createStepLog(stepName, 'error', error.message || '配图提示词生成失败', stepStart)
     return {
       error: error.message || '配图提示词生成失败',
-      currentStep: 'error'
+      currentStep: 'error',
+      stepLogs: [...logs, errorLog]
     }
   }
 }
 
 // AI 图像生成节点
 export async function imageGenerationNode(state: ImageWorkflowState): Promise<Partial<ImageWorkflowState>> {
+  const logs: StepLog[] = state.stepLogs || []
+  const stepName = 'AI 配图'
+  const stepStart = new Date().toISOString()
+  console.log(`[${stepName}] ===== 开始 =====`)
+
   try {
     const { imagePrompt, imageModel = 'gpt-image-2' } = state
 
@@ -48,23 +72,33 @@ export async function imageGenerationNode(state: ImageWorkflowState): Promise<Pa
       throw new Error('无配图提示词')
     }
 
+    console.log(`[${stepName}] 模型: ${imageModel}`)
+    const genStart = Date.now()
     const result = await generateImage({
       prompt: imagePrompt,
       model: imageModel as ImageModel
     })
+    const genDuration = Date.now() - genStart
 
     if (!result.success) {
       throw new Error(result.error || '图像生成失败')
     }
 
+    console.log(`[${stepName}] 图片生成完成（${genDuration}ms）`)
+    const successLog = createStepLog(stepName, 'success', `AI 配图生成完成（${genDuration}ms）`, stepStart)
+
     return {
       generatedImageUrl: result.imageUrl || result.imageBase64,
-      currentStep: 'image_generation'
+      currentStep: 'image_generation',
+      stepLogs: [...logs, successLog]
     }
   } catch (error: any) {
+    console.error(`[${stepName}] 错误:`, error.message)
+    const errorLog = createStepLog(stepName, 'error', error.message || '图像生成失败', stepStart)
     return {
       error: error.message || '图像生成失败',
-      currentStep: 'error'
+      currentStep: 'error',
+      stepLogs: [...logs, errorLog]
     }
   }
 }

@@ -16,6 +16,14 @@ import api from '@/lib/api'
 import { copyToClipboard } from '@/lib/utils'
 import type { Topic } from '@/lib/ai/types'
 
+// 工作流步骤日志类型
+interface StepLog {
+  step: string
+  status: 'running' | 'success' | 'error' | 'skipped'
+  message: string
+  durationMs?: number
+}
+
 // 数据源类型
 interface DataSource {
   webSearch: boolean
@@ -58,6 +66,7 @@ export default function CreatePage() {
   const [sensitivePassed, setSensitivePassed] = useState(true)
   const [generatedImagePrompt, setGeneratedImagePrompt] = useState('')
   const [workflowError, setWorkflowError] = useState<string | null>(null)
+  const [stepLogs, setStepLogs] = useState<StepLog[]>([])
   const [userFeedback, setUserFeedback] = useState('')
 
   // Image generation states
@@ -153,6 +162,7 @@ export default function CreatePage() {
 
     setAiLoading(true)
     setWorkflowError(null)
+    setStepLogs([])
     try {
       const res = await api.post('/workflow', {
         account: {
@@ -167,19 +177,20 @@ export default function CreatePage() {
         currentStep: 'topic_generation'
       })
 
+      setStepLogs(res.data.data?.stepLogs || [])
+
       if (res.data.success && res.data.data?.topics?.length > 0) {
         setGeneratedTopics(res.data.data.topics)
         setSelectedTopic(null)
       } else {
         const errorMsg = res.data.error || '选题生成失败'
         setWorkflowError(errorMsg)
-        alert(errorMsg)
       }
     } catch (error: any) {
       console.error('Workflow error:', error)
       const errorMsg = error.response?.data?.error || '选题生成失败'
       setWorkflowError(errorMsg)
-      alert(errorMsg)
+      setStepLogs([])
     } finally {
       setAiLoading(false)
     }
@@ -195,6 +206,7 @@ export default function CreatePage() {
 
     setAiLoading(true)
     setWorkflowError(null)
+    setStepLogs([])
 
     try {
       const res = await api.post('/workflow', {
@@ -211,6 +223,8 @@ export default function CreatePage() {
         userRequirements: writingRequirements,
         currentStep: 'content_generation'
       })
+
+      setStepLogs(res.data.data?.stepLogs || [])
 
       if (res.data.success && res.data.data) {
         const { rawContent: raw, humanizedContent: humanized, sensitiveResult } = res.data.data
@@ -232,13 +246,12 @@ export default function CreatePage() {
       } else {
         const errorMsg = res.data.error || '文案生成失败'
         setWorkflowError(errorMsg)
-        alert(errorMsg)
       }
     } catch (error: any) {
       console.error('Workflow error:', error)
       const errorMsg = error.response?.data?.error || '文案生成失败'
       setWorkflowError(errorMsg)
-      alert(errorMsg)
+      setStepLogs([])
     } finally {
       setAiLoading(false)
     }
@@ -590,6 +603,14 @@ export default function CreatePage() {
                   {workflowError && (
                     <p className="text-red-500 text-xs mt-2">{workflowError}</p>
                   )}
+                  {aiLoading && (
+                    <div className="mt-3 space-y-1 animate-pulse">
+                      <StepLogSkeleton />
+                    </div>
+                  )}
+                  {stepLogs.length > 0 && !aiLoading && (
+                    <StepLogDisplay logs={stepLogs} />
+                  )}
                 </div>
 
                 {/* AI 选题结果展示（内联，无二级弹窗） */}
@@ -911,6 +932,9 @@ export default function CreatePage() {
                 {workflowError && (
                   <p className="text-red-500 text-sm">{workflowError}</p>
                 )}
+                {stepLogs.length > 0 && !aiLoading && (
+                  <StepLogDisplay logs={stepLogs} />
+                )}
 
                 {/* 生成的图片预览 */}
                 {generatedImageUrl && (
@@ -1224,5 +1248,61 @@ export default function CreatePage() {
         </div>
       )}
     </>
+  )
+}
+
+// 步骤日志骨架屏
+function StepLogSkeleton() {
+  return (
+    <div className="space-y-1.5">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="w-3 h-3 rounded-full bg-gray-200 animate-pulse" />
+          <div className="h-3 bg-gray-200 rounded animate-pulse flex-1" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// 步骤日志展示组件
+function StepLogDisplay({ logs }: { logs: StepLog[] }) {
+  const statusIcon = (status: string) => {
+    switch (status) {
+      case 'success': return '✅'
+      case 'error': return '❌'
+      case 'skipped': return '⏭️'
+      default: return '⏳'
+    }
+  }
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case 'success': return 'text-green-600'
+      case 'error': return 'text-red-500'
+      case 'skipped': return 'text-gray-400'
+      default: return 'text-blue-500'
+    }
+  }
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
+      <div className="text-xs font-medium text-gray-500 mb-2">⚙️ 执行记录</div>
+      {logs.map((log, index) => (
+        <div key={index} className={`flex items-start gap-2 text-xs ${statusColor(log.status)}`}>
+          <span className="mt-0.5">{statusIcon(log.status)}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1">
+              <span className="font-medium">{log.step}</span>
+              <span className="text-gray-400">·</span>
+              <span>{log.message}</span>
+            </div>
+            {log.durationMs != null && (
+              <div className="text-gray-400 mt-0.5">耗时: {log.durationMs}ms</div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

@@ -28,6 +28,9 @@ const ContentWorkflowAnnotation = Annotation.Root({
   excludeTopics: Annotation<string[] | undefined>,
   userFeedback: Annotation<string | undefined>,
 
+  // 日志
+  stepLogs: Annotation<any[] | undefined>,
+
   // 流程控制
   currentStep: Annotation<string>,
 })
@@ -89,6 +92,9 @@ const ImageWorkflowAnnotation = Annotation.Root({
   // 配置
   imageType: Annotation<string>,
   imageModel: Annotation<string | undefined>,
+
+  // 日志
+  stepLogs: Annotation<any[] | undefined>,
 
   // 流程控制
   currentStep: Annotation<string>,

@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
         success: true,
         data: {
           topics: result.topics,
+          stepLogs: result.stepLogs || [],
           currentStep: 'topic_generation'
         }
       })
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
         rawContent: result.rawContent,
         humanizedContent: result.humanizedContent,
         sensitiveResult: result.sensitiveResult,
+        stepLogs: result.stepLogs || [],
         currentStep: result.currentStep,
         error: result.error
       },

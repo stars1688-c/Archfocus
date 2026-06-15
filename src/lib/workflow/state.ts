@@ -4,6 +4,29 @@ import type { Account, Topic, SensitiveWordResult } from '../ai/types'
 import type { HtmlStyle } from './htmlStyles'
 
 // ============================================
+// 工作流日志
+// ============================================
+
+export interface StepLog {
+  step: string
+  status: 'running' | 'success' | 'error' | 'skipped'
+  message: string
+  startedAt: string
+  durationMs?: number
+}
+
+export function createStepLog(step: string, status: StepLog['status'], message: string, startedAt?: string): StepLog {
+  const start = startedAt
+  return {
+    step,
+    status,
+    message,
+    startedAt: start || new Date().toISOString(),
+    ...(start ? { durationMs: Date.now() - new Date(start).getTime() } : {}),
+  }
+}
+
+// ============================================
 // 文案生成工作流
 // ============================================
 
@@ -24,6 +47,7 @@ export interface ContentWorkflowState {
   humanizedContent?: string
   sensitiveResult?: SensitiveWordResult
   error?: string
+  stepLogs?: StepLog[]
 
   // 配置
   searchEnabled: boolean
@@ -57,6 +81,7 @@ export interface ImageWorkflowState {
   generatedImageUrl?: string
   htmlScreenshotUrl?: string
   error?: string
+  stepLogs?: StepLog[]
 
   // 配置
   imageType: ImageGenerationType
