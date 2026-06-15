@@ -69,6 +69,31 @@ export default function CreatePage() {
   const [stepLogs, setStepLogs] = useState<StepLog[]>([])
   const [userFeedback, setUserFeedback] = useState('')
 
+  // Loading progress simulation
+  const [loadingProgress, setLoadingProgress] = useState(0)
+
+  useEffect(() => {
+    if (aiLoading) {
+      setLoadingProgress(0)
+      const interval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev >= 95) return prev // 卡在 95%，等实际完成
+          // 前 70% 快一点，后面慢一点，模拟真实进度
+          const increment = prev < 70 ? 5 + Math.random() * 8 : 1 + Math.random() * 3
+          return Math.min(95, prev + increment)
+        })
+      }, 400)
+      return () => {
+        clearInterval(interval)
+        setLoadingProgress(100)
+        // 短暂显示 100% 后重置
+        setTimeout(() => setLoadingProgress(0), 600)
+      }
+    } else {
+      setLoadingProgress(0)
+    }
+  }, [aiLoading])
+
   // Image generation states
   const [imageType, setImageType] = useState<'ai_prompt' | 'html_screenshot'>('ai_prompt')
   const [imageModel, setImageModel] = useState<string>('gpt-image-2')
@@ -463,7 +488,7 @@ export default function CreatePage() {
     }
   }
 
-  const canNext = currentStep === 0 ? title : currentStep === 1 ? content : true
+  const canNext = currentStep === 0 ? title : currentStep === 1 ? (content || humanizedContent) : true
 
   // 复制文本
   const copyText = async (text: string) => {
@@ -586,7 +611,6 @@ export default function CreatePage() {
                 <div className="border-t pt-4">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-sm font-medium">✨ AI 智能选题</span>
-                    {aiLoading && <span className="text-xs text-primary">生成中...</span>}
                   </div>
                   {!selectedAccount && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-sm text-amber-700">
@@ -603,11 +627,7 @@ export default function CreatePage() {
                   {workflowError && (
                     <p className="text-red-500 text-xs mt-2">{workflowError}</p>
                   )}
-                  {aiLoading && (
-                    <div className="mt-3 space-y-1 animate-pulse">
-                      <StepLogSkeleton />
-                    </div>
-                  )}
+                  {aiLoading && <LoadingProgress progress={loadingProgress} />}
                   {stepLogs.length > 0 && !aiLoading && (
                     <StepLogDisplay logs={stepLogs} />
                   )}
@@ -687,6 +707,7 @@ export default function CreatePage() {
                     </Button>
                   </div>
                 </div>
+                {aiLoading && <LoadingProgress progress={loadingProgress} />}
                 <div className="form-group">
                   <label className="block text-sm font-medium text-gray-500 mb-1.5">
                     写作要求（可选）
@@ -1178,7 +1199,7 @@ export default function CreatePage() {
             >
               {aiLoading ? '重新生成中...' : '根据反馈重新生成'}
             </Button>
-            <Button onClick={applyContent} disabled={sensitiveWords.length > 0}>
+            <Button onClick={applyContent}>
               使用这段内容
             </Button>
           </ModalFooter>
@@ -1251,16 +1272,29 @@ export default function CreatePage() {
   )
 }
 
-// 步骤日志骨架屏
-function StepLogSkeleton() {
+// 加载进度条
+function LoadingProgress({ progress }: { progress: number }) {
   return (
-    <div className="space-y-1.5">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
-          <div className="w-3 h-3 rounded-full bg-gray-200 animate-pulse" />
-          <div className="h-3 bg-gray-200 rounded animate-pulse flex-1" />
+    <div className="mt-3 bg-white border border-gray-100 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+          <span className="text-sm font-medium text-gray-700">AI 处理中...</span>
         </div>
-      ))}
+        <span className="text-sm font-bold text-primary">{Math.round(progress)}%</span>
+      </div>
+      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all duration-300 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="text-xs text-gray-400 mt-2">
+        {progress < 30 && '正在连接 AI 服务...'}
+        {progress >= 30 && progress < 60 && '正在生成内容...'}
+        {progress >= 60 && progress < 85 && '正在优化处理...'}
+        {progress >= 85 && '即将完成...'}
+      </p>
     </div>
   )
 }
