@@ -71,4 +71,20 @@ model SyncConfig {
   lastSyncAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  syncLogs     SyncLog[]
+}
+
+model SyncLog {
+  id           String   @id @default(cuid())
+  accountId    String
+  syncConfigId String?
+  syncConfig   SyncConfig? @relation(fields: [syncConfigId], references: [id])
+  requestUrl   String
+  requestBody  String?
+  responseBody String?
+  statusCode   Int?
+  success      Boolean  @default(true)
+  errorMessage String?
+  notesCount   Int?
+  createdAt    DateTime @default(now())
 }

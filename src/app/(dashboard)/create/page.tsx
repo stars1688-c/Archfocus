@@ -1,7 +1,7 @@
 // src/app/(dashboard)/create/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccountStore } from '@/stores/account-store'
 import { Header } from '@/components/layout/header'
@@ -13,6 +13,7 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@/comp
 import { ScheduleModal } from '@/components/modals/ScheduleModal'
 import { RegenerateModal } from '@/components/modals/RegenerateModal'
 import api from '@/lib/api'
+import { copyToClipboard } from '@/lib/utils'
 import type { Topic } from '@/lib/ai/types'
 
 // 数据源类型
@@ -39,7 +40,7 @@ const STEPS = ['选题', '文案', '配图', '发布']
 
 export default function CreatePage() {
   const router = useRouter()
-  const { accounts, selectedAccountId, selectAccount, getSelectedAccount } = useAccountStore()
+  const { accounts, selectedAccountId, selectAccount, getSelectedAccount, setAccounts } = useAccountStore()
   const [currentStep, setCurrentStep] = useState(0)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -49,13 +50,12 @@ export default function CreatePage() {
 
   // AI states
   const [aiLoading, setAiLoading] = useState(false)
-  const [showTopicModal, setShowTopicModal] = useState(false)
   const [showContentModal, setShowContentModal] = useState(false)
   const [generatedTopics, setGeneratedTopics] = useState<Topic[]>([])
   const [rawContent, setRawContent] = useState('')
   const [humanizedContent, setHumanizedContent] = useState('')
   const [sensitiveWords, setSensitiveWords] = useState<{ word: string; type: string }[]>([])
-  const [showImagePromptModal, setShowImagePromptModal] = useState(false)
+  const [sensitivePassed, setSensitivePassed] = useState(true)
   const [generatedImagePrompt, setGeneratedImagePrompt] = useState('')
   const [workflowError, setWorkflowError] = useState<string | null>(null)
   const [userFeedback, setUserFeedback] = useState('')
@@ -76,6 +76,48 @@ export default function CreatePage() {
     hotWords: false
   })
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+  const [hotKeywords, setHotKeywords] = useState<string[]>([])
+  const [hotKeywordsLoading, setHotKeywordsLoading] = useState(false)
+
+  // 加载账号列表
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        const res = await api.get('/accounts')
+        if (res.data.success && res.data.data.length > 0) {
+          setAccounts(res.data.data)
+          // 自动选择第一个账号
+          if (!selectedAccountId) {
+            selectAccount(res.data.data[0].id)
+          }
+        }
+      } catch (error) {
+        console.error('Load accounts error:', error)
+      }
+    }
+    loadAccounts()
+  }, [])
+
+  // 获取热点词
+  useEffect(() => {
+    if (dataSource.hotWords && selectedAccountId) {
+      fetchHotKeywords()
+    }
+  }, [dataSource.hotWords, selectedAccountId])
+
+  const fetchHotKeywords = async () => {
+    setHotKeywordsLoading(true)
+    try {
+      const res = await api.get(`/hot-keywords?accountId=${selectedAccountId}`)
+      if (res.data.success) {
+        setHotKeywords(res.data.data.keywords)
+      }
+    } catch (error) {
+      console.error('Fetch hot keywords error:', error)
+    } finally {
+      setHotKeywordsLoading(false)
+    }
+  }
 
   // Step 2 状态
   const [writingRequirements, setWritingRequirements] = useState('')
@@ -102,7 +144,7 @@ export default function CreatePage() {
 
   const selectedAccount = getSelectedAccount()
 
-  // 调用工作流 API 生成选题
+  // 调用工作流 API 生成选题（内联展示）
   const handleGenerateTopics = async () => {
     if (!selectedAccount) {
       alert('请先选择账号')
@@ -121,13 +163,13 @@ export default function CreatePage() {
           description: selectedAccount.description,
         },
         searchEnabled: dataSource.webSearch,
-        hotWordsEnabled: dataSource.hotWords,
+        hotKeywords: dataSource.hotWords ? hotKeywords : [],
         currentStep: 'topic_generation'
       })
 
       if (res.data.success && res.data.data?.topics?.length > 0) {
         setGeneratedTopics(res.data.data.topics)
-        setShowTopicModal(true)
+        setSelectedTopic(null)
       } else {
         const errorMsg = res.data.error || '选题生成失败'
         setWorkflowError(errorMsg)
@@ -143,71 +185,6 @@ export default function CreatePage() {
     }
   }
 
-  // 选择选题后继续工作流生成文案
-  const handleSelectTopic = async (topic: Topic) => {
-    if (!selectedAccount) return
-
-    setTitle(topic.title)
-    setShowTopicModal(false)
-    setAiLoading(true)
-    setWorkflowError(null)
-
-    try {
-      const res = await api.post('/workflow', {
-        account: {
-          id: selectedAccount.id,
-          name: selectedAccount.name,
-          position: selectedAccount.position,
-          audience: selectedAccount.audience,
-          description: selectedAccount.description,
-        },
-        selectedTopic: topic.title,
-        searchEnabled: true,
-        currentStep: 'content_generation'
-      })
-
-      if (res.data.success && res.data.data) {
-        const { rawContent: raw, humanizedContent: humanized, sensitiveResult } = res.data.data
-
-        if (raw) {
-          // 解析原始文案获取标题
-          const titleMatch = raw.match(/标题：(.+)/)
-          const contentMatch = raw.match(/正文：([\s\S]+?)(?:标签：|$)/)
-          const tagsMatch = raw.match(/标签：\[(.+)\]/)
-
-          if (titleMatch && !title) setTitle(titleMatch[1].trim())
-          setRawContent(contentMatch?.[1]?.trim() || '')
-        }
-
-        if (humanized) {
-          setHumanizedContent(humanized)
-        }
-
-        if (sensitiveResult) {
-          if (!sensitiveResult.passed && sensitiveResult.illegalWords?.length) {
-            setSensitiveWords(sensitiveResult.illegalWords)
-            const words = sensitiveResult.illegalWords.map((w: any) => w.word).join('、')
-            alert(`⚠️ 检测到敏感词：${words}\n请修改后再使用！`)
-          } else {
-            setSensitiveWords([])
-          }
-        }
-
-        setShowContentModal(true)
-      } else {
-        const errorMsg = res.data.error || '文案生成失败'
-        setWorkflowError(errorMsg)
-        alert(errorMsg)
-      }
-    } catch (error: any) {
-      console.error('Workflow error:', error)
-      const errorMsg = error.response?.data?.error || '文案生成失败'
-      setWorkflowError(errorMsg)
-      alert(errorMsg)
-    } finally {
-      setAiLoading(false)
-    }
-  }
 
   // 手动输入标题后生成文案
   const handleGenerateContentWithTitle = async () => {
@@ -247,11 +224,8 @@ export default function CreatePage() {
         }
 
         if (sensitiveResult) {
-          if (!sensitiveResult.passed && sensitiveResult.illegalWords?.length) {
-            setSensitiveWords(sensitiveResult.illegalWords)
-          } else {
-            setSensitiveWords([])
-          }
+          setSensitivePassed(!!sensitiveResult.passed)
+          setSensitiveWords(sensitiveResult.illegalWords || [])
         }
 
         setShowContentModal(true)
@@ -270,7 +244,8 @@ export default function CreatePage() {
     }
   }
 
-  const handleSaveDraft = async () => {
+  // 立即发布
+  const handlePublish = async () => {
     if (!selectedAccount || !title) {
       alert('请选择账号并输入标题')
       return
@@ -283,15 +258,52 @@ export default function CreatePage() {
         title,
         content,
         images,
+        status: 'published',
+        publishedAt: new Date().toISOString(),
       })
 
       if (res.data.success) {
-        alert('草稿保存成功')
+        alert('发布成功')
         router.push('/drafts')
       }
     } catch (error) {
-      console.error('Save draft error:', error)
-      alert('保存失败')
+      console.error('Publish error:', error)
+      alert('发布失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 定时发布
+  const handleScheduledPublish = async () => {
+    if (!selectedAccount || !title) {
+      alert('请选择账号并输入标题')
+      return
+    }
+
+    if (!schedule.time) {
+      alert('请设置发布时间')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const res = await api.post('/notes', {
+        accountId: selectedAccount.id,
+        title,
+        content,
+        images,
+        status: 'pending',
+        publishAt: schedule.time.toISOString(),
+      })
+
+      if (res.data.success) {
+        alert('定时发布已设置')
+        router.push('/drafts')
+      }
+    } catch (error) {
+      console.error('Schedule publish error:', error)
+      alert('设置失败')
     } finally {
       setSaving(false)
     }
@@ -303,6 +315,7 @@ export default function CreatePage() {
     setHumanizedContent('')
     setRawContent('')
     setSensitiveWords([])
+    setSensitivePassed(true)
   }
 
   const handleAIGenerateImagePrompt = async () => {
@@ -319,7 +332,6 @@ export default function CreatePage() {
 
       if (res.data.success && res.data.data?.imagePrompt) {
         setGeneratedImagePrompt(res.data.data.imagePrompt)
-        setShowImagePromptModal(true)
       } else {
         alert(res.data.error || '配图提示词生成失败')
       }
@@ -422,11 +434,8 @@ export default function CreatePage() {
         }
 
         if (sensitiveResult) {
-          if (!sensitiveResult.passed && sensitiveResult.illegalWords?.length) {
-            setSensitiveWords(sensitiveResult.illegalWords)
-          } else {
-            setSensitiveWords([])
-          }
+          setSensitivePassed(!!sensitiveResult.passed)
+          setSensitiveWords(sensitiveResult.illegalWords || [])
         }
 
         setUserFeedback('')
@@ -445,15 +454,13 @@ export default function CreatePage() {
 
   // 复制文本
   const copyText = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
+    const ok = await copyToClipboard(text)
+    if (ok) {
       setToast({ show: true, message: '已复制到剪贴板', type: 'success' })
-      setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 2000)
-    } catch (err) {
-      console.error('复制失败:', err)
+    } else {
       setToast({ show: true, message: '复制失败，请重试', type: 'error' })
-      setTimeout(() => setToast({ show: false, message: '', type: 'error' }), 2000)
     }
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 2000)
   }
 
   return (
@@ -506,23 +513,10 @@ export default function CreatePage() {
         <Card>
           <CardBody className="min-h-96">
             {currentStep === 0 && (
-              <div className="space-y-4">
-                <div className="text-center mb-6">
-                  <div className="text-4xl mb-2">💡</div>
-                  <h3 className="text-lg font-medium">开始创作</h3>
-                  <p className="text-gray-500 text-sm">输入笔记主题或使用 AI 生成选题</p>
-                </div>
-                <Input
-                  label="笔记标题"
-                  placeholder="输入标题..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-                <p className="text-xs text-gray-400 text-right">{title.length}/100</p>
-
-                {/* 数据源多选 */}
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-500 mb-2">数据源（可多选）</label>
+              <div className="space-y-6">
+                {/* 数据源选择 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-3">数据源（可多选）</label>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -549,8 +543,34 @@ export default function CreatePage() {
                   </div>
                 </div>
 
-                {/* AI 生成选题 */}
-                <div className="border-t pt-4 mt-4">
+                {/* 热点词展示 */}
+                {dataSource.hotWords && (
+                  <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-medium text-orange-700">🔥 基于"{selectedAccount?.position} · {selectedAccount?.audience}"的热点词</span>
+                      {hotKeywordsLoading && <span className="text-xs text-orange-500">加载中...</span>}
+                    </div>
+                    {hotKeywords.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {hotKeywords.map((keyword, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1.5 bg-white border border-orange-200 rounded-full text-sm text-gray-700"
+                          >
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    ) : !hotKeywordsLoading && selectedAccountId ? (
+                      <p className="text-sm text-gray-500">暂无可用热点词</p>
+                    ) : (
+                      <p className="text-sm text-gray-500">请先选择账号以获取热点词</p>
+                    )}
+                  </div>
+                )}
+
+                {/* AI 生成选题按钮 */}
+                <div className="border-t pt-4">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-sm font-medium">✨ AI 智能选题</span>
                     {aiLoading && <span className="text-xs text-primary">生成中...</span>}
@@ -560,25 +580,54 @@ export default function CreatePage() {
                       ⚠️ 请先在右上角选择一个小红书账号，才能使用 AI 生成功能
                     </div>
                   )}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={handleGenerateTopics}
-                      disabled={aiLoading || !selectedAccount}
-                      className="flex-1"
-                    >
-                      {aiLoading ? '生成中...' : '🎯 AI 生成选题'}
-                    </Button>
-                    <Button
-                      onClick={handleGenerateContentWithTitle}
-                      disabled={aiLoading || !selectedAccount || !title.trim()}
-                    >
-                      直接生成文案
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={handleGenerateTopics}
+                    disabled={aiLoading || !selectedAccount}
+                    className="w-full"
+                  >
+                    {aiLoading ? '生成中...' : '🎯 AI 生成选题'}
+                  </Button>
                   {workflowError && (
                     <p className="text-red-500 text-xs mt-2">{workflowError}</p>
                   )}
+                </div>
+
+                {/* AI 选题结果展示（内联，无二级弹窗） */}
+                {generatedTopics.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-3">AI 推荐选题（点击选题自动填入下方）</label>
+                    <div className="space-y-3">
+                      {generatedTopics.map((topic, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTopic(topic.title)
+                            setTitle(topic.title)
+                          }}
+                          className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
+                            selectedTopic === topic.title
+                              ? 'border-primary bg-primary-bg'
+                              : 'border-gray-100 hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="font-medium text-primary">{topic.title}</div>
+                          <div className="text-xs text-gray-500 mt-1">{topic.reason}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 笔记标题（最下方） */}
+                <div className="border-t pt-4">
+                  <Input
+                    label="笔记标题"
+                    placeholder="输入标题，或点击上方 AI 选题..."
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-400 text-right mt-1">{title.length}/100</p>
                 </div>
               </div>
             )}
@@ -590,6 +639,13 @@ export default function CreatePage() {
                     ⚠️ 请先在右上角选择一个小红书账号，才能使用 AI 生成功能
                   </div>
                 )}
+
+                {/* 笔记标题（来自第一步） */}
+                <div className="bg-primary-bg border border-primary/20 rounded-xl p-3">
+                  <div className="text-xs text-primary/70 font-medium mb-1">📌 笔记标题</div>
+                  <div className="font-medium text-gray-800">{title || '（暂未设置标题）'}</div>
+                </div>
+
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-medium">笔记内容</h3>
                   <div className="flex gap-2">
@@ -696,9 +752,9 @@ export default function CreatePage() {
                       </Button>
                     )}
 
-                    {/* 步骤2：编辑提示词 */}
+                    {/* 提示词编辑 + 模型选择 + 生图数量 */}
                     {(generatedImagePrompt || imagePrompt) && (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-500 mb-1.5">
                             ✏️ 提示词编辑（可修改）
@@ -710,71 +766,56 @@ export default function CreatePage() {
                             onChange={(e) => setImagePrompt(e.target.value)}
                           />
                         </div>
+
+                        <label className="block text-sm font-medium text-gray-500 mb-2">绘图模型</label>
+                        <Select value={imageModel} onValueChange={(v: any) => setImageModel(v)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="gpt-image-2">GPT-Image 2（默认）</SelectItem>
+                            <SelectItem value="doubao-seedream-5-0-lite">Seedream 5.0</SelectItem>
+                            <SelectItem value="minimax-image-01">MiniMax Image-01</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <div className="form-group">
+                          <label className="block text-sm font-medium text-gray-500 mb-1.5">生图数量</label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              min={1}
+                              max={9}
+                              value={imageCount}
+                              onChange={(e) => setImageCount(Math.max(1, Math.min(9, parseInt(e.target.value) || 1)))}
+                              className="w-20 px-3 py-2 border border-gray-200 rounded-xl text-center outline-none focus:border-primary"
+                            />
+                            <span className="text-sm text-gray-500">张（封面尺寸 3:4）</span>
+                          </div>
+                        </div>
+
                         <Button
-                          onClick={() => setPromptConfirmed(true)}
+                          onClick={handleGenerateImage}
+                          disabled={imageGenerating}
                           className="w-full"
                         >
-                          ✅ 确认提示词，继续生成图片
+                          {imageGenerating ? '生成中...' : '✨ 生成图片'}
                         </Button>
+
+                        {/* 跳过配图选项 */}
+                        {!generatedImageUrl && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setImages([])
+                              setCurrentStep(3)
+                            }}
+                            className="w-full mt-2 text-gray-400"
+                          >
+                            跳过配图
+                          </Button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {/* 步骤3：选择模型并生成图片 */}
-                {imageType === 'ai_prompt' && promptConfirmed && (
-                  <div className="space-y-4">
-                    <div className="bg-green-50 rounded-xl p-3 text-sm text-green-700">
-                      ✅ 提示词已确认，可以生成图片了
-                    </div>
-
-                    <label className="block text-sm font-medium text-gray-500 mb-2">绘图模型</label>
-                    <Select value={imageModel} onValueChange={(v: any) => setImageModel(v)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gpt-image-2">GPT-Image 2（默认）</SelectItem>
-                        <SelectItem value="doubao-seedream-5-0-lite">Seedream 5.0</SelectItem>
-                        <SelectItem value="minimax-image-01">MiniMax Image-01</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <div className="form-group mt-4">
-                      <label className="block text-sm font-medium text-gray-500 mb-1.5">生图数量</label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          min={1}
-                          max={9}
-                          value={imageCount}
-                          onChange={(e) => setImageCount(Math.max(1, Math.min(9, parseInt(e.target.value) || 1)))}
-                          className="w-20 px-3 py-2 border border-gray-200 rounded-xl text-center outline-none focus:border-primary"
-                        />
-                        <span className="text-sm text-gray-500">张（封面尺寸 3:4）</span>
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={handleGenerateImage}
-                      disabled={imageGenerating}
-                      className="w-full"
-                    >
-                      {imageGenerating ? '生成中...' : '✨ 生成图片'}
-                    </Button>
-
-                    {/* 跳过配图选项 */}
-                    {!generatedImageUrl && (
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          setImages([])
-                          setCurrentStep(3)
-                        }}
-                        className="w-full mt-2 text-gray-400"
-                      >
-                        跳过配图
-                      </Button>
                     )}
                   </div>
                 )}
@@ -1014,10 +1055,7 @@ export default function CreatePage() {
             </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={handleSaveDraft} disabled={saving}>
-                保存草稿
-              </Button>
-              <Button onClick={handleSaveDraft} disabled={saving}>
+              <Button onClick={handlePublish} disabled={saving}>
                 立即发布
               </Button>
               <Button
@@ -1033,41 +1071,6 @@ export default function CreatePage() {
         </div>
       </div>
 
-      {/* AI 选题 Modal */}
-      <Modal open={showTopicModal} onOpenChange={setShowTopicModal}>
-        <ModalContent>
-          <ModalHeader>
-            <h3>🎯 AI 推荐选题</h3>
-          </ModalHeader>
-          <ModalBody>
-            <p className="text-sm text-gray-500 mb-4">基于你的人设和当前热点，AI 生成了以下选题：</p>
-            <div className="space-y-3">
-              {generatedTopics.map((topic, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    setSelectedTopic(topic.title)
-                    setTitle(topic.title)
-                  }}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
-                    selectedTopic === topic.title
-                      ? 'border-primary bg-primary-bg'
-                      : 'border-gray-100 hover:border-primary/30'
-                  }`}
-                >
-                  <div className="font-medium text-primary">{topic.title}</div>
-                  <div className="text-xs text-gray-500 mt-1">{topic.reason}</div>
-                </button>
-              ))}
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="outline" onClick={() => setShowTopicModal(false)}>
-              关闭
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
 
       {/* AI 文案 Modal */}
       <Modal open={showContentModal} onOpenChange={setShowContentModal}>
@@ -1077,20 +1080,35 @@ export default function CreatePage() {
           </ModalHeader>
           <ModalBody>
             <div className="space-y-4">
-              {/* 敏感词警告 */}
-              {sensitiveWords.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-red-600 text-sm font-medium mb-2">⚠️ 检测到敏感词：</p>
-                  <div className="flex flex-wrap gap-2">
-                    {sensitiveWords.map((item, index) => (
-                      <span key={index} className="bg-red-100 text-red-600 px-2 py-1 rounded text-xs">
-                        {item.word}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-red-500 text-xs mt-2">请修改这些词语后再使用</p>
+              {/* 敏感词检测结果 */}
+              <div className={`rounded-xl p-3 border ${
+                sensitivePassed
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <div className="flex items-center gap-2 mb-1">
+                  {sensitivePassed ? (
+                    <>
+                      <span className="text-green-600 font-medium">✅ 敏感词检测通过</span>
+                      <span className="text-xs text-green-500">未检测到敏感词</span>
+                    </>
+                  ) : (
+                    <span className="text-red-600 font-medium">⚠️ 检测到敏感词</span>
+                  )}
                 </div>
-              )}
+                {!sensitivePassed && sensitiveWords.length > 0 && (
+                  <>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {sensitiveWords.map((item, index) => (
+                        <span key={index} className="bg-red-100 text-red-600 px-2 py-1 rounded text-xs">
+                          {item.word}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-red-500 text-xs mt-2">请修改这些词语后再使用</p>
+                  </>
+                )}
+              </div>
 
               {/* 原始文案 */}
               {rawContent && (
@@ -1143,45 +1161,46 @@ export default function CreatePage() {
         </ModalContent>
       </Modal>
 
-      {/* AI Image Prompt Modal */}
-      <Modal open={showImagePromptModal} onOpenChange={setShowImagePromptModal}>
-        <ModalContent>
-          <ModalHeader>
-            <h3>✨ AI 生成绘图提示词</h3>
-          </ModalHeader>
-          <ModalBody>
-            <div className="space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-2">英文提示词（用于 AI 绘图）：</p>
-                <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">{generatedImagePrompt}</pre>
-              </div>
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="outline" onClick={() => setShowImagePromptModal(false)}>
-              取消
-            </Button>
-            <Button onClick={() => {
-              setImagePrompt(generatedImagePrompt)
-              setShowImagePromptModal(false)
-            }}>
-              使用此提示词
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
       {/* 定时发布 Modal */}
       <ScheduleModal
         open={showScheduleModal}
         onOpenChange={setShowScheduleModal}
-        onSchedule={(schedule) => {
+        onSchedule={async (scheduleData) => {
           setSchedule({
             enabled: true,
-            time: schedule.time,
-            emailReminder: schedule.emailReminder,
-            email: schedule.email
+            time: scheduleData.time,
+            emailReminder: scheduleData.emailReminder,
+            email: scheduleData.email
           })
+
+          // 保存到待发布列表
+          if (!selectedAccount || !title) {
+            alert('请选择账号并输入标题')
+            return
+          }
+
+          setSaving(true)
+          try {
+            const res = await api.post('/notes', {
+              accountId: selectedAccount.id,
+              title,
+              content,
+              images,
+              status: 'pending',
+              publishAt: scheduleData.time.toISOString(),
+            })
+
+            if (res.data.success) {
+              setShowScheduleModal(false)
+              alert('定时发布已设置')
+              router.push('/drafts')
+            }
+          } catch (error) {
+            console.error('Schedule publish error:', error)
+            alert('设置失败')
+          } finally {
+            setSaving(false)
+          }
         }}
         defaultEmail={schedule.email}
       />

@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Modal, ModalContent, ModalHeader, ModalBody } from '@/components/ui/modal'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
+import { SyncModal } from '@/components/modals/SyncModal'
 import { useAccountStore } from '@/stores/account-store'
 import api from '@/lib/api'
-import { formatDate } from '@/lib/utils'
+import { formatDate, copyToClipboard } from '@/lib/utils'
 import type { Note, NoteWithAccount } from '@/types'
 
 export default function DraftsPage() {
@@ -19,8 +20,8 @@ export default function DraftsPage() {
   const [pendingNotes, setPendingNotes] = useState<NoteWithAccount[]>([])
   const [publishedNotes, setPublishedNotes] = useState<NoteWithAccount[]>([])
   const [loading, setLoading] = useState(false)
-  const [syncing, setSyncing] = useState(false)
   const [selectedNote, setSelectedNote] = useState<NoteWithAccount | null>(null)
+  const [syncModalOpen, setSyncModalOpen] = useState(false)
 
   useEffect(() => {
     loadNotes()
@@ -46,29 +47,6 @@ export default function DraftsPage() {
       console.error('Load notes error:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleSync = async () => {
-    if (!selectedAccountId) {
-      alert('请先选择一个账号进行同步')
-      return
-    }
-
-    setSyncing(true)
-    try {
-      const res = await api.post('/sync', { accountIds: [selectedAccountId] })
-      if (res.data.success) {
-        alert('同步成功！')
-        loadNotes() // 重新加载笔记
-      } else {
-        alert(res.data.error || '同步失败')
-      }
-    } catch (error) {
-      console.error('Sync error:', error)
-      alert('同步失败，请重试')
-    } finally {
-      setSyncing(false)
     }
   }
 
@@ -116,14 +94,17 @@ const getSyncStatusBadge = (note: NoteWithAccount) => {
   return null
 }
 
-const NoteCard = ({ note }: { note: NoteWithAccount }) => (
-    <div
-      className="p-4 border border-gray-100 rounded-xl hover:border-primary/30 cursor-pointer transition-colors"
-      onClick={() => setSelectedNote(note)}
-    >
+
+  const NoteCard = ({ note }: { note: NoteWithAccount }) => (
+    <div className="p-4 border border-gray-100 rounded-xl hover:border-primary/30 transition-colors">
       <div className="flex items-start justify-between mb-2">
-        <h4 className="font-medium line-clamp-2 flex-1">{note.title}</h4>
-        <div className="flex items-center gap-1">
+        <h4
+          className="font-medium line-clamp-2 flex-1 cursor-pointer hover:text-primary"
+          onClick={() => setSelectedNote(note)}
+        >
+          {note.title}
+        </h4>
+        <div className="flex items-center gap-1 shrink-0 ml-2">
           {note.status === 'published' && getSyncStatusBadge(note)}
           {note.status === 'published' && (
             <Badge variant="green">已发布</Badge>
@@ -133,13 +114,47 @@ const NoteCard = ({ note }: { note: NoteWithAccount }) => (
       {note.account && (
         <div className="text-xs text-gray-400 mb-2">{note.account.name}</div>
       )}
+      {note.status === 'pending' && note.publishAt && (
+        <div className="text-xs text-orange-600 mb-2">
+          ⏰ 计划发布：{formatDate(note.publishAt)}
+        </div>
+      )}
+      {note.content && (
+        <div
+          className="text-sm text-gray-600 line-clamp-3 mb-3 cursor-pointer leading-relaxed"
+          onClick={() => setSelectedNote(note)}
+        >
+          {note.content}
+        </div>
+      )}
       <div className="flex items-center justify-between text-xs text-gray-400">
         <span>{formatDate(note.createdAt)}</span>
-        {note.status === 'published' ? (
-          <span>👍 {note.likes} 💬 {note.comments}</span>
-        ) : (
-          <span>待发布</span>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-gray-400 hover:text-red-500 hover:bg-red-50"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDeleteNote(note)
+            }}
+          >
+            删除
+          </Button>
+          {note.status === 'published' ? (
+            <span>👍 {note.likes} 💬 {note.comments}</span>
+          ) : (
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleMarkPublished(note)
+              }}
+            >
+              标为发布
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -153,10 +168,9 @@ const NoteCard = ({ note }: { note: NoteWithAccount }) => (
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSync}
-              disabled={syncing || !selectedAccountId}
+              onClick={() => setSyncModalOpen(true)}
             >
-              {syncing ? '同步中...' : '🔄 同步笔记'}
+              🔄 同步笔记
             </Button>
             <Select value={selectedAccountId || 'all'} onValueChange={(v) => selectAccount(v === 'all' ? null : v)}>
               <SelectTrigger className="w-36">
@@ -218,26 +232,98 @@ const NoteCard = ({ note }: { note: NoteWithAccount }) => (
         </Tabs>
       </div>
 
+      <SyncModal open={syncModalOpen} onOpenChange={setSyncModalOpen} onSynced={loadNotes} />
+
       {/* Note Detail Modal */}
       <Modal open={!!selectedNote} onOpenChange={() => setSelectedNote(null)}>
         <ModalContent>
           <ModalHeader>
-            <h3>{selectedNote?.title}</h3>
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="flex-1">{selectedNote?.title}</h3>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  copyToClipboard(selectedNote?.title || '')
+                  alert('标题已复制')
+                }}
+              >
+                📋 复制
+              </Button>
+            </div>
           </ModalHeader>
           <ModalBody>
             {selectedNote && (
               <div className="space-y-4">
-                <div className="text-sm text-gray-500">
-                  {selectedNote.account?.name} · {formatDate(selectedNote.publishedAt || selectedNote.createdAt)}
+                <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+                  <span>{selectedNote.account?.name}</span>
+                  {selectedNote.status === 'pending' && selectedNote.publishAt && (
+                    <Badge variant="orange">计划发布：{formatDate(selectedNote.publishAt)}</Badge>
+                  )}
+                  <span>· {formatDate(selectedNote.publishedAt || selectedNote.createdAt)}</span>
+                  {selectedNote.status === 'published' && getSyncStatusBadge(selectedNote)}
                 </div>
-                <div className="bg-gray-50 rounded-xl p-4 whitespace-pre-wrap">
-                  {selectedNote.content}
+                <div className="flex items-start gap-2">
+                  <div className="bg-gray-50 rounded-xl p-4 whitespace-pre-wrap flex-1 max-h-80 overflow-y-auto scrollbar-thin">
+                    {selectedNote.content}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      copyToClipboard(selectedNote?.content || '')
+                      alert('内容已复制')
+                    }}
+                  >
+                    📋 复制
+                  </Button>
                 </div>
                 {selectedNote.images.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {selectedNote.images.map((img, i) => (
-                      <div key={i} className="aspect-square bg-gray-100 rounded-lg" />
-                    ))}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500">配图 ({selectedNote.images.length})</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          for (let i = 0; i < (selectedNote?.images.length || 0); i++) {
+                            await new Promise(resolve => setTimeout(resolve, 300))
+                            const link = document.createElement('a')
+                            link.href = selectedNote?.images[i] || ''
+                            link.download = `配图${i + 1}.jpg`
+                            link.click()
+                          }
+                          alert('图片开始逐个下载')
+                        }}
+                      >
+                        ⬇️ 下载全部
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {selectedNote.images.map((img, i) => (
+                        <div key={i} className="relative group">
+                          <img
+                            src={img}
+                            alt={`配图${i + 1}`}
+                            className="w-full aspect-square object-cover rounded-lg"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              const link = document.createElement('a')
+                              link.href = img
+                              link.download = `配图${i + 1}.jpg`
+                              link.click()
+                              alert('图片已开始下载')
+                            }}
+                          >
+                            ⬇️ 下载
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {selectedNote.status === 'published' && (
@@ -248,10 +334,34 @@ const NoteCard = ({ note }: { note: NoteWithAccount }) => (
                     <span>↗️ {selectedNote.shares}</span>
                   </div>
                 )}
+                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  {selectedNote.status === 'pending' && (
+                    <Button
+                      className="flex-1"
+                      onClick={() => {
+                        handleMarkPublished(selectedNote)
+                        setSelectedNote(null)
+                      }}
+                    >
+                      ✅ 标为已发布
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="text-red-500 border-red-200 hover:bg-red-50"
+                    onClick={() => {
+                      handleDeleteNote(selectedNote)
+                      setSelectedNote(null)
+                    }}
+                  >
+                    删除笔记
+                  </Button>
+                </div>
               </div>
             )}
           </ModalBody>
         </ModalContent>
+
       </Modal>
     </>
   )

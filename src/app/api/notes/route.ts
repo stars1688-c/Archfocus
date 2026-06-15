@@ -39,9 +39,15 @@ export async function GET(request: NextRequest) {
       prisma.note.count({ where }),
     ])
 
+    // 解析 images 字段（从 JSON 字符串转为数组）
+    const parsedNotes = notes.map(note => ({
+      ...note,
+      images: typeof note.images === 'string' ? JSON.parse(note.images) : note.images,
+    }))
+
     return NextResponse.json({
       success: true,
-      data: { notes, total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: { notes: parsedNotes, total, page, limit, totalPages: Math.ceil(total / limit) },
     })
   } catch (error) {
     console.error('Get notes error:', error)
@@ -58,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { accountId, title, content, images, publishAt } = body
+    const { accountId, title, content, images, status, publishAt, publishedAt } = body
 
     if (!accountId || !title) {
       return NextResponse.json({ success: false, error: '账号和标题不能为空' }, { status: 400 })
@@ -79,8 +85,9 @@ export async function POST(request: NextRequest) {
         title,
         content: content || '',
         images: JSON.stringify(images || []),
-        status: 'pending',
+        status: status || 'pending',
         publishAt: publishAt ? new Date(publishAt) : null,
+        publishedAt: publishedAt ? new Date(publishedAt) : null,
       },
     })
 

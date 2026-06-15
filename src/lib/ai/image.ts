@@ -196,7 +196,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
 
   // MiniMax image-01: 直接返回 URL，无需轮询
   if (model === 'minimax-image-01') {
-    return generateMiniMaxImage(options.prompt)
+    return generateMiniMaxImage(options.prompt, options.n)
   }
 
   // Apimart GPT-Image 2 / Seedream: 提交 + 轮询
@@ -207,7 +207,7 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
     const isNetworkError = submitResult.error?.includes('网络请求失败') || submitResult.error?.includes('fetch failed')
     if (isNetworkError && MINIMAX_API_KEY) {
       console.log('⚠️ Apimart 不可达，回退到 MiniMax image-01')
-      return generateMiniMaxImage(options.prompt)
+      return generateMiniMaxImage(options.prompt, options.n)
     }
     return submitResult
   }
@@ -226,10 +226,13 @@ export async function generateImage(options: ImageGenerationOptions): Promise<Im
 /**
  * 使用 MiniMax image-01 生成图像（同步，无需轮询）
  */
-async function generateMiniMaxImage(prompt: string): Promise<ImageGenerationResult> {
+async function generateMiniMaxImage(prompt: string, n: number = 1): Promise<ImageGenerationResult> {
   if (!MINIMAX_API_KEY) {
     return { success: false, error: 'MiniMax API 未配置' }
   }
+
+  // MiniMax image-01 单次请求限制 max 20 张
+  const safeN = Math.min(Math.max(n, 1), 20)
 
   try {
     const response = await fetch('https://api.minimaxi.com/v1/image_generation', {
@@ -241,6 +244,7 @@ async function generateMiniMaxImage(prompt: string): Promise<ImageGenerationResu
       body: JSON.stringify({
         model: 'image-01',
         prompt,
+        num: safeN,
       }),
     })
 

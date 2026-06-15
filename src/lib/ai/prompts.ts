@@ -65,6 +65,7 @@ export function getContentGenerationPrompt(account: Account): string {
 5. 标签：生成3-5个相关标签（#标签格式）
 6. 结尾：引导互动（评论、收藏、关注）
 7. 避免：模板化表达、套路化结尾、AI写作痕迹
+8. **重要：不要使用任何 Markdown 格式**，包括加粗（**）、斜体（*）、下划线（_）、链接、代码块等。直接输出纯文本，段落之间用空行分隔即可。
 
 ## 输出格式
 标题：[标题]
@@ -101,6 +102,7 @@ export function getHumanizerPrompt(): string {
 5. 添加真实个性：有观点、有情感
 6. 句子长度要有变化
 7. 结尾要具体，不要泛泛而谈
+8. **不要使用任何 Markdown 格式**（加粗、斜体、链接等），直接输出纯文本
 
 ## 润色示例
 
@@ -136,7 +138,7 @@ export function getImagePromptGenerationPrompt(): string {
 
 ## 输出格式
 
-请生成英文提示词，包含：
+请生成中文提示词，包含：
 1. 主体描述（subject）
 2. 风格描述（style）
 3. 光线描述（lighting）
@@ -144,5 +146,5 @@ export function getImagePromptGenerationPrompt(): string {
 5. 构图描述（composition）
 
 输出格式：
-[英文提示词] | 类型：[配图类型] | 风格：[选择的风格]`
+[中文提示词] | 类型：[配图类型] | 风格：[选择的风格]`
 }

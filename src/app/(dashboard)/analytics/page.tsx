@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
+import { SyncModal } from '@/components/modals/SyncModal'
 import { useAccountStore } from '@/stores/account-store'
 import api from '@/lib/api'
 import { formatDate } from '@/lib/utils'
@@ -15,6 +16,7 @@ export default function AnalyticsPage() {
   const { accounts, selectedAccountId, selectAccount } = useAccountStore()
   const [notes, setNotes] = useState<NoteWithAccount[]>([])
   const [loading, setLoading] = useState(false)
+  const [syncModalOpen, setSyncModalOpen] = useState(false)
   const [filter, setFilter] = useState<AnalyticsFilter>({})
   const [sortField, setSortField] = useState<SortField>('publishedAt')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
@@ -81,9 +83,10 @@ export default function AnalyticsPage() {
       return str
     }
 
-    const headers = ['标题', '账号', '点赞', '评论', '收藏', '转发', '发布时间']
+    const headers = ['标题', '内容', '账号', '点赞', '评论', '收藏', '转发', '发布时间']
     const rows = filteredNotes.map(n => [
       n.title,
+      n.content || '',
       n.account?.name || '',
       n.likes,
       n.comments,
@@ -113,19 +116,28 @@ export default function AnalyticsPage() {
       <Header
         title="数据分析"
         rightContent={
-          <Select value={selectedAccountId || 'all'} onValueChange={(v) => selectAccount(v === 'all' ? null : v)}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="全部账号" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部账号</SelectItem>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSyncModalOpen(true)}
+            >
+              🔄 同步数据
+            </Button>
+            <Select value={selectedAccountId || 'all'} onValueChange={(v) => selectAccount(v === 'all' ? null : v)}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="全部账号" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部账号</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         }
       />
 
@@ -194,6 +206,7 @@ export default function AnalyticsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-gray-500">笔记</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">内容</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500">账号</th>
                   <th
                     className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer hover:text-primary"
@@ -230,7 +243,7 @@ export default function AnalyticsPage() {
               <tbody>
                 {filteredNotes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-gray-400">
+                    <td colSpan={8} className="text-center py-12 text-gray-400">
                       暂无数据
                     </td>
                   </tr>
@@ -246,6 +259,11 @@ export default function AnalyticsPage() {
                         >
                           {note.title}
                         </a>
+                      </td>
+                      <td className="px-4 py-3 max-w-xs">
+                        <div className="text-gray-600 line-clamp-2 text-xs leading-relaxed">
+                          {note.content || '-'}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-500">{note.account?.name || '-'}</td>
                       <td className="px-4 py-3">{note.likes}</td>
@@ -270,6 +288,8 @@ export default function AnalyticsPage() {
           </div>
         </Card>
       </div>
+
+      <SyncModal open={syncModalOpen} onOpenChange={setSyncModalOpen} onSynced={loadAnalytics} />
     </>
   )
 }

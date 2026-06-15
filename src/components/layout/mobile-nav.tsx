@@ -2,7 +2,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -15,13 +15,12 @@ const navItems = [
 
 export function MobileNav() {
   const pathname = usePathname()
-  const router = useRouter()
   const logout = useAuthStore((state) => state.logout)
 
   const handleLogout = () => {
     if (confirm('确定要退出登录吗？')) {
       logout()
-      router.push('/login')
+      window.location.href = '/login'
     }
   }
 

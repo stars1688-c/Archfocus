@@ -27,6 +27,7 @@ export interface ContentWorkflowState {
 
   // 配置
   searchEnabled: boolean
+  hotKeywords?: string[]
   userRequirements?: string
   excludeTopics?: string[]
   userFeedback?: string

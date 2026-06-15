@@ -26,6 +26,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token')
+        // Also clear Zustand persist auth state to break redirect loop
+        localStorage.removeItem('auth-storage')
         window.location.replace('/login')
       }
     }

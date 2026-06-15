@@ -15,17 +15,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [ready, setReady] = useState(false)
 
+  // Wait for Zustand persist to finish hydrating before checking auth
   useEffect(() => {
-    setMounted(true)
+    if (useAuthStore.persist?.hasHydrated?.()) {
+      setReady(true)
+      return
+    }
+    const unsub = useAuthStore.persist?.onFinishHydration?.(() => {
+      setReady(true)
+    })
+    return () => unsub?.()
   }, [])
 
   useEffect(() => {
-    if (mounted && isAuthenticated) {
+    if (ready && isAuthenticated) {
       router.push('/')
     }
-  }, [mounted, isAuthenticated, router])
+  }, [ready, isAuthenticated, router])
 
   const handleLogin = async () => {
     if (!phone || !password) {
@@ -53,7 +61,7 @@ export default function LoginPage() {
     }
   }
 
-  if (!mounted || isAuthenticated) {
+  if (!ready || isAuthenticated) {
     return null
   }
 

@@ -23,6 +23,7 @@ const ContentWorkflowAnnotation = Annotation.Root({
 
   // 配置
   searchEnabled: Annotation<boolean>,
+  hotKeywords: Annotation<string[] | undefined>,
   userRequirements: Annotation<string | undefined>,
   excludeTopics: Annotation<string[] | undefined>,
   userFeedback: Annotation<string | undefined>,
@@ -34,7 +35,17 @@ const ContentWorkflowAnnotation = Annotation.Root({
 function contentShouldContinue(state: any): string {
   switch (state.currentStep) {
     case 'topic_generation':
-      return 'contentGeneration'
+      // 选题生成后，检查是否有已选择的选题
+      // 如果有选题且有原始内容，说明是继续生成流程
+      // 如果有选题但无原始内容，进入文案生成节点
+      // 否则暂停等待用户选择
+      if (state.selectedTopic && state.rawContent) {
+        return 'humanization'
+      }
+      if (state.selectedTopic && !state.rawContent) {
+        return 'contentGeneration'
+      }
+      return END  // 暂停，等待用户选择
     case 'content_generation':
       return 'humanization'
     case 'humanization':
@@ -55,7 +66,7 @@ const contentWorkflow = new StateGraph(ContentWorkflowAnnotation)
   .addNode('humanization', humanizerNode)
   .addNode('sensitiveCheck', sensitiveCheckNode)
   .addEdge(START, 'topicGeneration')
-  .addEdge('topicGeneration', 'contentGeneration')
+  .addConditionalEdges('topicGeneration', contentShouldContinue)
   .addEdge('contentGeneration', 'humanization')
   .addEdge('humanization', 'sensitiveCheck')
   .addConditionalEdges('sensitiveCheck', contentShouldContinue)

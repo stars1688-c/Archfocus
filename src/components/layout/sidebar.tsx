@@ -2,7 +2,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -20,13 +20,12 @@ interface SidebarProps {
 
 export function Sidebar({ userName = '用户', planInfo = '个人版' }: SidebarProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const logout = useAuthStore((state) => state.logout)
 
   const handleLogout = () => {
     if (confirm('确定要退出登录吗？')) {
       logout()
-      router.push('/login')
+      window.location.href = '/login'
     }
   }
 
@@ -65,20 +64,22 @@ export function Sidebar({ userName = '用户', planInfo = '个人版' }: Sidebar
       </nav>
 
       {/* User Info */}
-      <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-full bg-primary-bg text-primary flex items-center justify-center font-semibold text-sm">
-          {userName.charAt(0)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium truncate">{userName}</div>
-          <div className="text-xs text-gray-400">{planInfo}</div>
+      <div className="px-4 py-3 border-t border-gray-100">
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className="w-8 h-8 rounded-full bg-primary-bg text-primary flex items-center justify-center font-semibold text-sm">
+            {userName.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{userName}</div>
+            <div className="text-xs text-gray-400">{planInfo}</div>
+          </div>
         </div>
         <button
           onClick={handleLogout}
-          className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-          title="退出登录"
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
         >
-          🚪
+          <span>🚪</span>
+          <span>退出登录</span>
         </button>
       </div>
     </aside>

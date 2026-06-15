@@ -2,7 +2,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
 import { Sidebar } from '@/components/layout/sidebar'
 import { MobileNav } from '@/components/layout/mobile-nav'
@@ -12,22 +11,23 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const router = useRouter()
   const { isAuthenticated } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [ready, setReady] = useState(false)
 
+  // Wait briefly for Zustand persist to restore auth state from localStorage
   useEffect(() => {
-    setMounted(true)
+    const timer = setTimeout(() => setReady(true), 300)
+    return () => clearTimeout(timer)
   }, [])
 
   useEffect(() => {
-    if (mounted && !isAuthenticated) {
-      router.push('/login')
+    if (ready && !isAuthenticated) {
+      window.location.href = '/login'
     }
-  }, [mounted, isAuthenticated, router])
+  }, [ready, isAuthenticated])
 
-  if (!mounted) {
+  if (!ready) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-gray-500">加载中...</div>

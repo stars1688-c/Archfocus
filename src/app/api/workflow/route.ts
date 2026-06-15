@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { account, topic, searchEnabled, userRequirements, selectedTopic, excludeTopics, userFeedback } = body
+    const { account, topic, searchEnabled, hotKeywords, userRequirements, selectedTopic, excludeTopics, userFeedback } = body
 
     if (!account) {
       return NextResponse.json({ success: false, error: '缺少账号信息' }, { status: 400 })
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       account,
       topic,
       searchEnabled: searchEnabled ?? true,
+      hotKeywords,
       userRequirements,
       selectedTopic,
       excludeTopics: allExcludeTopics,
@@ -47,7 +48,28 @@ export async function POST(request: NextRequest) {
     }
 
     // 运行工作流
-    const result: any = await contentWorkflow.invoke(initialState)
+    let result: any
+    try {
+      result = await contentWorkflow.invoke(initialState)
+    } catch (invokeError: any) {
+      console.error('Workflow invoke error:', invokeError)
+      return NextResponse.json({
+        success: false,
+        error: invokeError.message || '工作流执行失败',
+        data: { currentStep: 'error' }
+      })
+    }
+
+    // 选题生成后立即返回，不等待后续步骤
+    if (result.topics && result.topics.length > 0 && result.currentStep === 'topic_generation') {
+      return NextResponse.json({
+        success: true,
+        data: {
+          topics: result.topics,
+          currentStep: 'topic_generation'
+        }
+      })
+    }
 
     return NextResponse.json({
       success: !result.error,
@@ -57,7 +79,8 @@ export async function POST(request: NextRequest) {
         rawContent: result.rawContent,
         humanizedContent: result.humanizedContent,
         sensitiveResult: result.sensitiveResult,
-        currentStep: result.currentStep
+        currentStep: result.currentStep,
+        error: result.error
       },
       error: result.error
     })
