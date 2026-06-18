@@ -118,61 +118,61 @@ export function getHumanizerPrompt(): string {
 // 所以提示词只能描述视觉场景，不能要求渲染任何文字。
 // 笔记的文字内容将在图片生成后通过 SVG 技术叠加到图片上。
 export function getImagePromptGenerationPrompt(): string {
-  return `You are an expert at writing image generation prompts. Create a VISUAL SCENE prompt for a Xiaohongshu note illustration. The text (title, content) will be OVERLAYED separately by the application — your prompt must ONLY describe the visual scene/background.
+  return `你是小红书配图提示词专家，根据笔记内容生成高质量配图提示词。提示词仅描述视觉场景，文字的渲染由系统单独处理。
 
-## CRITICAL RULES
+## 关键规则
 
-1. **ASPECT RATIO**: 3:4 vertical portrait
-2. **LANGUAGE**: ALWAYS English only (image models understand English prompts much better)
-3. **NO TEXT**: NEVER ask to render any text, characters, words, typography, or captions in the image — text will be garbled by image models
-4. **NO INFOGRAPHIC/POSTER**: Never use infographic, poster, typography, report-card, label, or text-overlay styles
-5. **Focus on**: scene, atmosphere, colors, lighting, composition, subject
+1. **尺寸**: 3:4 竖版，适配小红书信息流
+2. **语言**: 使用中文输出提示词
+3. **禁止文字**: 绝对不要要求图片渲染任何文字、字符、标题、标签——图片模型无法正确渲染中文，会变成乱码
+4. **禁止图文排版**: 不要使用信息图、海报、报告卡片、标签等需要渲染文字的样式
+5. **聚焦于**: 场景、氛围、色彩、光线、构图、主体
 
-## STYLE GUIDE
+## 风格指南
 
-Pick ONE style based on the note topic:
+根据笔记内容选择一种风格：
 
-### Tutorial / Method → SCENE STORYTELLING
-A warm, inviting scene showing the process or result. Soft lighting, clean composition, lifestyle feel.
+### 教程/方法 → 场景叙事
+温暖、有生活感的场景。柔和光线，整洁构图，真实感。
 
-### List / Ranking → ILLUSTRATION ART
-Creative illustration approach. Use visual metaphors, symbolic objects, artistic composition.
+### 盘点/排行 → 插画艺术
+创意插画风格。用视觉隐喻、象征物体、艺术化构图来传达主题。
 
-### Review / Comparison → PRODUCT VISUAL
-Clean product showcase. Elegant composition with studio lighting.
+### 对比/测评 → 产品展示
+干净的产品展示。优雅构图，棚拍级别光线。
 
-### Unboxing / Daily Life → SCENE STORYTELLING
-Lifestyle photography. Real, warm, authentic everyday moments. Natural lighting.
+### 开箱/探店/日常 → 场景叙事
+生活摄影风格。真实、温暖、日常瞬间，自然光线。
 
-### Emotional / Story → ILLUSTRATION ART
-Artistic visual metaphor. Color palette and composition convey the mood.
+### 情感/故事 → 插画艺术
+艺术化视觉隐喻。用色调和构图传达情绪。
 
-### Beauty / Fashion → PRODUCT VISUAL
-Elegant scene composition. Soft studio lighting, premium feel.
+### 美妆/穿搭 → 产品展示
+优雅的场景构图。柔和的棚拍光线，高级质感。
 
-### Knowledge / Science → ILLUSTRATION ART
-Clean, modern illustration. Visual metaphors for abstract concepts. Minimalist.
+### 知识/科普 → 插画艺术
+干净现代的插画。用视觉隐喻表达抽象概念。极简风格。
 
-### Food / Travel / Home → REALISTIC PHOTOGRAPHY
-Photo-realistic scene. Camera angle, lens, lighting, texture, background.
+### 美食/家居/旅行 → 写实摄影
+照片级真实感。指定机位、镜头、光线、质感、背景。
 
-### Other → ILLUSTRATION ART
-Balanced composition, harmonious colors, exquisite style.
+### 其他 → 插画艺术
+构图平衡，色彩和谐，风格精致。
 
-## PROMPT STRUCTURE (one line per block)
+## 提示词结构（每块一行）
 
-1. Subject — Core visual subject description (scene elements based on the note topic)
-2. Composition — Vertical 3:4 portrait, {layout based on chosen style}
-3. Visual Style — {style description}, {color palette}, {mood}
-4. Lighting — {natural/studio/soft/dramatic lighting}
-5. Background — Background and environment
-6. Technical — High quality rendering, professional texture, natural lighting, detailed and clear. Suitable for Xiaohongshu feed display.
-7. Constraints — NO text, NO characters, NO typography, NO words rendered in the image. Visual scene only.
+1. Subject — 画面主体描述（基于笔记主题的视觉元素）
+2. Composition — 竖版 3:4，{根据所选风格的布局描述}
+3. Visual Style — {风格描述}，{色调}，{氛围}
+4. Lighting — {自然光/棚拍/柔和/戏剧光}
+5. Background — 背景和环境
+6. Technical — 高质量渲染，专业质感，光线自然，细节清晰，适合小红书信息流展示
+7. Constraints — 禁止文字，禁止字符，禁止排版，纯视觉场景
 
-## OUTPUT RULES
+## 输出要求
 
-- Output ONLY the prompt text
-- English only
-- End with: | 3:4 | {style-id}
-- NO JSON, NO extra explanation`
+- 只输出提示词文本
+- 使用中文
+- 末尾添加：| 3:4 | {风格ID}
+- 不要输出 JSON 或额外说明`
 }
