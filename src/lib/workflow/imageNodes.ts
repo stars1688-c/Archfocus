@@ -62,6 +62,8 @@ export async function imagePromptGenerationNode(state: ImageWorkflowState): Prom
 }
 
 // AI 图像生成节点
+// 策略：AI 生成纯视觉背景图（不含文字），再用 SVG 叠加中文标题和正文
+// 因为图片模型无法正确渲染中文文字，叠加 SVG 文字保证清晰可读
 export async function imageGenerationNode(state: ImageWorkflowState): Promise<Partial<ImageWorkflowState>> {
   const logs: StepLog[] = state.stepLogs || []
   const stepName = 'AI 配图'
@@ -69,7 +71,7 @@ export async function imageGenerationNode(state: ImageWorkflowState): Promise<Pa
   logStepStart(stepName)
 
   try {
-    const { imagePrompt, imageModel = 'gpt-image-2' } = state
+    const { imagePrompt, imageModel = 'gpt-image-2', content, title } = state
 
     if (!imagePrompt) {
       throw new Error('无配图提示词')
@@ -87,11 +89,73 @@ export async function imageGenerationNode(state: ImageWorkflowState): Promise<Pa
       throw new Error(result.error || '图像生成失败')
     }
 
-    logStepSuccess(stepName, `图片生成完成`, genDuration)
+    const aiImageUrl = result.imageUrl || result.imageBase64 || ''
+
+    // 解析文案内容，用于 SVG 文字叠加
+    const titleMatch = (content || '').match(/标题：(.+)/)
+    const contentMatch = (content || '').match(/正文：([\s\S]+?)(?:标签：|$)/)
+    const tagsMatch = (content || '').match(/标签：\[(.+)\]/)
+    const tagsFullMatch = (content || '').match(/标签：(.+)/)
+
+    const parsedTitle = titleMatch?.[1]?.trim() || title || '小红书笔记'
+    const parsedContent = contentMatch?.[1]?.trim() || content || ''
+    const parsedTags = tagsMatch?.[1]?.split(',').map((t: string) => t.trim()).filter(Boolean)
+      || tagsFullMatch?.[1]?.split(',').map((t: string) => t.trim()).filter(Boolean)
+      || []
+
+    // 截断正文显示
+    const maxContentLength = 150
+    const displayContent = parsedContent.length > maxContentLength
+      ? parsedContent.substring(0, maxContentLength) + '...'
+      : parsedContent
+
+    // 截断标题显示
+    const displayTitle = parsedTitle.length > 30
+      ? parsedTitle.substring(0, 30) + '...'
+      : parsedTitle
+
+    // 标签文本
+    const tagsStr = parsedTags.slice(0, 5).map(t => `#${t}`).join('  ')
+
+    // 构建 SVG: AI 图片为背景 + 中文文字叠加
+    // SVG 尺寸 500x700 ≈ 3:4 竖版，适配小红书信息流
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="500" height="700" viewBox="0 0 500 700">
+  <defs>
+    <!-- 底部渐变遮罩，让文字更清晰 -->
+    <linearGradient id="textOverlay" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+      <stop offset="55%" stop-color="rgba(0,0,0,0.35)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.75)"/>
+    </linearGradient>
+    <!-- 顶部微渐变 -->
+    <linearGradient id="topOverlay" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(0,0,0,0.2)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+    </linearGradient>
+  </defs>
+  <!-- AI 生成的背景图 -->
+  ${aiImageUrl ? `<image href="${escapeXml(aiImageUrl)}" x="0" y="0" width="500" height="700" preserveAspectRatio="xMidYMid slice"/>` : ''}
+  <!-- 顶部微渐变 -->
+  <rect x="0" y="0" width="500" height="120" fill="url(#topOverlay)"/>
+  <!-- 底部文字遮罩 -->
+  <rect x="0" y="300" width="500" height="400" fill="url(#textOverlay)"/>
+  <!-- 标题 -->
+  <text x="30" y="480" font-size="22" fill="white" font-weight="bold" font-family="'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif" width="440">${escapeXml(displayTitle)}</text>
+  <!-- 正文摘要 -->
+  <text x="30" y="520" font-size="15" fill="rgba(255,255,255,0.9)" font-family="'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif" width="440">${escapeXml(displayContent)}</text>
+  <!-- 标签 -->
+  ${parsedTags.length > 0 ? `<text x="30" y="650" font-size="14" fill="rgba(255,255,255,0.7)" font-family="'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif">${escapeXml(tagsStr)}</text>` : ''}
+  <!-- 底部品牌标识 -->
+  <text x="440" y="670" font-size="12" fill="rgba(255,255,255,0.4)" text-anchor="end" font-family="Arial, sans-serif">ArchFocus</text>
+</svg>`
+
+    const base64Image = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
+
+    logStepSuccess(stepName, `图片生成完成（含文字叠加）`, genDuration)
     const successLog = createStepLog(stepName, 'success', `AI 配图生成完成（${genDuration}ms）`, stepStart)
 
     return {
-      generatedImageUrl: result.imageUrl || result.imageBase64,
+      generatedImageUrl: base64Image,
       currentStep: 'image_generation',
       stepLogs: [...logs, successLog]
     }
@@ -150,20 +214,20 @@ export async function htmlScreenshotNode(state: ImageWorkflowState): Promise<Par
   <rect x="20" y="20" width="460" height="560" rx="16" fill="none" stroke="#ffe0e0" stroke-width="1"/>
   <!-- 头部：头像+关注 -->
   <circle cx="60" cy="70" r="20" fill="url(#avatar)"/>
-  <text x="70" y="75" font-size="16" fill="white" font-weight="bold" text-anchor="middle" font-family="Arial, sans-serif">美</text>
-  <text x="95" y="75" font-size="14" fill="#333" font-weight="600" font-family="Arial, sans-serif">美食探索家</text>
+  <text x="70" y="75" font-size="16" fill="white" font-weight="bold" text-anchor="middle" font-family="'PingFang SC', 'Microsoft YaHei', sans-serif">美</text>
+  <text x="95" y="75" font-size="14" fill="#333" font-weight="600" font-family="'PingFang SC', 'Microsoft YaHei', sans-serif">美食探索家</text>
   <rect x="390" y="55" width="70" height="30" rx="15" fill="#ff4757"/>
-  <text x="425" y="75" font-size="12" fill="white" text-anchor="middle" font-family="Arial, sans-serif">关注</text>
+  <text x="425" y="75" font-size="12" fill="white" text-anchor="middle" font-family="'PingFang SC', 'Microsoft YaHei', sans-serif">关注</text>
   <!-- 标题 -->
-  <text x="40" y="140" font-size="20" fill="#1a1a1a" font-weight="bold" font-family="Arial, sans-serif" width="420">${escapeXml(parsedTitle)}</text>
+  <text x="40" y="140" font-size="20" fill="#1a1a1a" font-weight="bold" font-family="'PingFang SC', 'Microsoft YaHei', sans-serif">${escapeXml(parsedTitle)}</text>
   <!-- 正文 -->
-  <text x="40" y="180" font-size="14" fill="#666" line-height="1.6" font-family="Arial, sans-serif" width="420">${escapeXml(displayContent)}</text>
+  <text x="40" y="180" font-size="14" fill="#666" font-family="'PingFang SC', 'Microsoft YaHei', sans-serif">${escapeXml(displayContent)}</text>
   <!-- 标签 -->
-  ${parsedTags.length > 0 ? `<text x="40" y="520" font-size="13" fill="#ff4757" font-family="Arial, sans-serif">${escapeXml(tagsStr)}</text>` : ''}
+  ${parsedTags.length > 0 ? `<text x="40" y="520" font-size="13" fill="#ff4757" font-family="'PingFang SC', 'Microsoft YaHei', sans-serif">${escapeXml(tagsStr)}</text>` : ''}
   <!-- 底部 -->
   <line x1="40" y1="540" x2="460" y2="540" stroke="#f0f0f0" stroke-width="1"/>
-  <text x="40" y="565" font-size="12" fill="#999" font-family="Arial, sans-serif">👍 0    💬 0    ⭐ 0</text>
-  <text x="440" y="565" font-size="12" fill="#ff4757" font-weight="600" text-anchor="end" font-family="Arial, sans-serif">小红书</text>
+  <text x="40" y="565" font-size="12" fill="#999" font-family="'PingFang SC', 'Microsoft YaHei', sans-serif">👍 0    💬 0    ⭐ 0</text>
+  <text x="440" y="565" font-size="12" fill="#ff4757" font-weight="600" text-anchor="end" font-family="'PingFang SC', 'Microsoft YaHei', sans-serif">小红书</text>
 </svg>`
 
     const base64Image = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`

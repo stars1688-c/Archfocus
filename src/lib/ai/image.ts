@@ -41,7 +41,7 @@ async function submitImageGeneration(options: ImageGenerationOptions): Promise<I
   const {
     prompt,
     model = 'gpt-image-2',
-    size = '3:4',
+    size = '1024x1792',
     resolution = '1k',
     n = 1,
     output_format
