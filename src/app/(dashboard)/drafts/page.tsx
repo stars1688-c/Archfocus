@@ -107,7 +107,7 @@ const getSyncStatusBadge = (note: NoteWithAccount) => {
     return <Badge variant="blue">非平台创作</Badge>
   }
   if (note.syncStatus === 'pending_link') {
-    return <Badge variant="orange">非平台创作，待关联</Badge>
+    return <Badge variant="orange">平台创作，待关联</Badge>
   }
   if (note.syncStatus === 'linked') {
     return <Badge variant="green">平台创作，已关联</Badge>
