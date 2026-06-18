@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { accounts, setAccounts, addAccount, updateAccount, deleteAccount } = useAccountStore()
   const [stats, setStats] = useState({ published: 0, pending: 0 })
+  const [pendingCounts, setPendingCounts] = useState<Record<string, number>>({})
   const [showAccountModal, setShowAccountModal] = useState(false)
   const [showIdGuideModal, setShowIdGuideModal] = useState(false)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
@@ -58,6 +59,15 @@ export default function DashboardPage() {
         const pending = notes.filter((n: Note) => n.status === 'pending').length
 
         setStats({ published, pending })
+
+        // 计算每个账号的待发布笔记数
+        const counts: Record<string, number> = {}
+        for (const n of notes) {
+          if (n.status === 'pending') {
+            counts[n.accountId] = (counts[n.accountId] || 0) + 1
+          }
+        }
+        setPendingCounts(counts)
       }
     } catch (error) {
       console.error('Load data error:', error)
@@ -177,7 +187,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                      <span className="text-sm text-gray-500">待发布 0</span>
+                      <span className="text-sm text-gray-500">待发布 {pendingCounts[account.id] || 0}</span>
                       <Badge variant={account.status === 'active' ? 'blue' : 'orange'}>
                         {account.status === 'active' ? '绑定账户' : '待绑定'}
                       </Badge>
