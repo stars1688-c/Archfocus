@@ -406,6 +406,8 @@ export default function CreatePage() {
     setImageGenerating(true)
     setLoadingStage('配图生成中...')
     setWorkflowError(null)
+    setGeneratedImageUrl(null)
+    setImages([])
 
     try {
       const fullContent = `标题：${title}\n正文：${humanizedContent || content}\n标签：[]`
@@ -420,30 +422,33 @@ export default function CreatePage() {
       })
 
       if (res.data.success && res.data.data) {
-        const { imagePrompt, generatedImageUrl, htmlScreenshotUrl, error } = res.data.data
+        const { imagePrompt, generatedImageUrl, htmlScreenshotUrl, htmlScreenshotUrls, error } = res.data.data
 
         if (imagePrompt) {
           setGeneratedImagePrompt(imagePrompt)
         }
 
-        const finalImageUrl = generatedImageUrl || htmlScreenshotUrl
-        if (finalImageUrl) {
-          setGeneratedImageUrl(finalImageUrl)
-          setImages([finalImageUrl])
-        } else if (error) {
-          setWorkflowError(error)
-          alert(`配图生成失败：${error}`)
+        // HTML 截图多图模式
+        if (htmlScreenshotUrls && htmlScreenshotUrls.length > 0) {
+          setGeneratedImageUrl(htmlScreenshotUrls[0])
+          setImages(htmlScreenshotUrls)
+        } else {
+          const finalImageUrl = generatedImageUrl || htmlScreenshotUrl
+          if (finalImageUrl) {
+            setGeneratedImageUrl(finalImageUrl)
+            setImages([finalImageUrl])
+          } else if (error) {
+            setWorkflowError(error)
+          }
         }
       } else {
         const errorMsg = res.data.error || '配图生成失败'
         setWorkflowError(errorMsg)
-        alert(errorMsg)
       }
     } catch (error: any) {
       console.error('Image generation error:', error)
       const errorMsg = error.response?.data?.error || '配图生成失败'
       setWorkflowError(errorMsg)
-      alert(errorMsg)
     } finally {
       setImageGenerating(false)
     }
@@ -642,7 +647,10 @@ export default function CreatePage() {
                     {aiLoading ? '生成中...' : '🎯 AI 生成选题'}
                   </Button>
                   {workflowError && (
-                    <p className="text-red-500 text-xs mt-2">{workflowError}</p>
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                      <p className="text-red-600 text-sm font-medium">❌ 生成失败</p>
+                      <p className="text-red-500 text-xs mt-1">{workflowError}</p>
+                    </div>
                   )}
                   {stepLogs.length > 0 && !aiLoading && (
                     <StepLogDisplay logs={stepLogs} />
@@ -983,30 +991,35 @@ export default function CreatePage() {
                 )}
 
                 {workflowError && (
-                  <p className="text-red-500 text-sm">{workflowError}</p>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <p className="text-red-600 text-sm font-medium">❌ 生成失败</p>
+                    <p className="text-red-500 text-xs mt-1">{workflowError}</p>
+                  </div>
                 )}
                 {stepLogs.length > 0 && !aiLoading && (
                   <StepLogDisplay logs={stepLogs} />
                 )}
 
                 {/* 生成的图片预览 */}
-                {generatedImageUrl && (
+                {images.length > 0 && (
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium text-gray-500">生成结果</label>
-                      <Button variant="outline" size="sm" onClick={() => copyText(generatedImageUrl)}>
-                        📋 复制图片链接
-                      </Button>
+                      <label className="text-sm font-medium text-gray-500">
+                        生成结果（{images.length} 张）
+                      </label>
                     </div>
-                    <div className="border border-gray-200 rounded-xl p-2 bg-gray-50">
-                      <img
-                        src={generatedImageUrl}
-                        alt="生成的配图"
-                        className="max-w-full h-auto rounded-lg"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      {images.map((url, index) => (
+                        <div key={index} className="border border-gray-200 rounded-xl p-2 bg-gray-50">
+                          <img src={url} alt={`截图 ${index + 1}`} className="w-full h-auto rounded-lg" />
+                          <p className="text-xs text-gray-400 text-center mt-1">
+                            {index === 0 ? '封面' : `第 ${index + 1} 页`}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                     <p className="text-xs text-gray-400 mt-2 text-center">
-                      {imageType === 'ai_prompt' ? 'AI 绘画' : 'HTML 截图'}
+                      {imageType === 'html_screenshot' ? 'HTML 截图' : 'AI 绘画'}
                     </p>
                   </div>
                 )}
@@ -1077,20 +1090,15 @@ export default function CreatePage() {
                   </div>
                 )}
 
-                {generatedImageUrl && (
+                {images.length > 0 && (
                   <div className="bg-gray-50 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium">配图</div>
-                      <Button variant="outline" size="sm" onClick={() => copyText(generatedImageUrl)}>
-                        📋 复制图片链接
-                      </Button>
+                      <div className="font-medium">配图（{images.length} 张）</div>
                     </div>
-                    <div className="flex justify-center">
-                      <img
-                        src={generatedImageUrl}
-                        alt="配图"
-                        className="max-w-full max-h-64 rounded-lg"
-                      />
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {images.map((url, index) => (
+                        <img key={index} src={url} alt={`配图 ${index + 1}`} className="w-24 h-32 object-cover rounded-lg border border-gray-200" />
+                      ))}
                     </div>
                   </div>
                 )}

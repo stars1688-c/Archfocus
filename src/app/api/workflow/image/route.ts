@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
         imagePrompt: result.imagePrompt,
         generatedImageUrl: result.generatedImageUrl,
         htmlScreenshotUrl: result.htmlScreenshotUrl,
+        htmlScreenshotUrls: result.htmlScreenshotUrls,
         stepLogs: result.stepLogs || [],
         currentStep: result.currentStep
       },

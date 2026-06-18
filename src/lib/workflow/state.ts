@@ -80,6 +80,7 @@ export interface ImageWorkflowState {
   imagePrompt?: string
   generatedImageUrl?: string
   htmlScreenshotUrl?: string
+  htmlScreenshotUrls?: string[]
   error?: string
   stepLogs?: StepLog[]
 
