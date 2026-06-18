@@ -232,22 +232,6 @@ export async function POST(request: NextRequest) {
           stats.externalNew++
         }
 
-        // Case 5: 平台创作笔记在 TikOmni 找不到的 = 待关联
-        const PENDING_LINK_GRACE_MS = 48 * 60 * 60 * 1000 // 48 小时缓冲
-        for (const note of localPlatformNotes) {
-          if (!matchedNoteIds.has(note.id)) {
-            // 新发布的笔记给 TikOmni 足够时间收录，48 小时内不标 pending_link
-            if (note.publishedAt && Date.now() - note.publishedAt.getTime() < PENDING_LINK_GRACE_MS) {
-              continue
-            }
-            await prisma.note.update({
-              where: { id: note.id },
-              data: { syncStatus: 'pending_link' },
-            })
-            stats.pendingLink++
-          }
-        }
-
         results.push({ accountId: account.id, success: true, count: syncResult.notes.length })
       } catch (error: any) {
         console.error(`Sync error for account ${account.id}:`, error)
