@@ -1,7 +1,7 @@
 // src/app/(dashboard)/drafts/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -23,9 +23,19 @@ export default function DraftsPage() {
   const [selectedNote, setSelectedNote] = useState<NoteWithAccount | null>(null)
   const [syncModalOpen, setSyncModalOpen] = useState(false)
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' })
+  const copyInputRef = useRef<HTMLTextAreaElement>(null)
 
-  const copyText = async (text: string) => {
-    const ok = await copyToClipboard(text)
+  // 使用 Modal 内预置的 textarea 进行复制（避免 Portal 内动态创建元素导致的 iOS 兼容问题）
+  const copyText = (text: string) => {
+    const input = copyInputRef.current
+    if (!input) return
+    input.value = text
+    input.style.display = 'block'
+    input.focus()
+    input.select()
+    input.setSelectionRange(0, text.length)
+    const ok = document.execCommand('copy')
+    input.style.display = 'none'
     if (ok) {
       setToast({ show: true, message: '已复制到剪贴板', type: 'success' })
     } else {
@@ -261,6 +271,15 @@ const getSyncStatusBadge = (note: NoteWithAccount) => {
             </div>
           </ModalHeader>
           <ModalBody>
+            {/* 预置 textarea 用于手机端复制（在 Portal DOM 内，execCommand 可正常工作） */}
+            <textarea
+              ref={copyInputRef}
+              className="fixed opacity-0 pointer-events-none z-0"
+              style={{ left: '1px', top: '1px', width: '1px', height: '1px' }}
+              readOnly
+              aria-hidden="true"
+              tabIndex={-1}
+            />
             {selectedNote && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm text-gray-500 flex-wrap">
