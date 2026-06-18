@@ -743,7 +743,7 @@ export default function CreatePage() {
                     <button
                       type="button"
                       onClick={() => setEditorFullscreen(!editorFullscreen)}
-                      className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 md:hidden"
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
                       title={editorFullscreen ? '退出全屏' : '全屏编辑'}
                     >
                       {editorFullscreen ? (

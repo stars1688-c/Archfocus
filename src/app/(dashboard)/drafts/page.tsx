@@ -16,7 +16,7 @@ import { formatDate, copyToClipboard } from '@/lib/utils'
 import type { Note, NoteWithAccount } from '@/types'
 
 export default function DraftsPage() {
-  const { accounts, selectedAccountId, selectAccount } = useAccountStore()
+  const { accounts, selectedAccountId, selectAccount, setAccounts } = useAccountStore()
   const [pendingNotes, setPendingNotes] = useState<NoteWithAccount[]>([])
   const [publishedNotes, setPublishedNotes] = useState<NoteWithAccount[]>([])
   const [loading, setLoading] = useState(false)
@@ -43,6 +43,21 @@ export default function DraftsPage() {
     }
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 2000)
   }
+
+  // 加载账号列表
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        const res = await api.get('/accounts')
+        if (res.data.success) {
+          setAccounts(res.data.data)
+        }
+      } catch (error) {
+        console.error('Load accounts error:', error)
+      }
+    }
+    loadAccounts()
+  }, [])
 
   useEffect(() => {
     loadNotes()

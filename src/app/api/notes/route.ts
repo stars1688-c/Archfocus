@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')))
 
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+
     const where: any = {
       account: { userId: user.id },
     }
@@ -26,6 +29,21 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       where.status = status
+    }
+
+    // 日期范围过滤（状态为 published 时按 publishedAt 过滤，否则按 createdAt）
+    if (startDate || endDate) {
+      const dateField = status === 'published' ? 'publishedAt' : 'createdAt'
+      where[dateField] = {}
+      if (startDate) {
+        where[dateField].gte = new Date(startDate)
+      }
+      if (endDate) {
+        // 将结束日期设为当天结束（23:59:59.999），包含当天所有数据
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        where[dateField].lte = end
+      }
     }
 
     const [notes, total] = await Promise.all([

@@ -13,13 +13,28 @@ import { formatDate } from '@/lib/utils'
 import type { NoteWithAccount, AnalyticsFilter, SortField, SortDirection } from '@/types'
 
 export default function AnalyticsPage() {
-  const { accounts, selectedAccountId, selectAccount } = useAccountStore()
+  const { accounts, selectedAccountId, selectAccount, setAccounts } = useAccountStore()
   const [notes, setNotes] = useState<NoteWithAccount[]>([])
   const [loading, setLoading] = useState(false)
   const [syncModalOpen, setSyncModalOpen] = useState(false)
   const [filter, setFilter] = useState<AnalyticsFilter>({})
   const [sortField, setSortField] = useState<SortField>('publishedAt')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
+
+  // 加载账号列表
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        const res = await api.get('/accounts')
+        if (res.data.success) {
+          setAccounts(res.data.data)
+        }
+      } catch (error) {
+        console.error('Load accounts error:', error)
+      }
+    }
+    loadAccounts()
+  }, [])
 
   useEffect(() => {
     loadAnalytics()
@@ -65,6 +80,7 @@ export default function AnalyticsPage() {
   })
 
   const filteredNotes = sortedNotes.filter(note => {
+    if (note.syncStatus === 'pending_link') return false
     if (filter.likesMin && note.likes < filter.likesMin) return false
     if (filter.likesMax && note.likes > filter.likesMax) return false
     if (filter.bookmarksMin && note.bookmarks < filter.bookmarksMin) return false
@@ -199,8 +215,8 @@ export default function AnalyticsPage() {
           </CardBody>
         </Card>
 
-        {/* Data Table */}
-        <Card>
+        {/* Data Table - Desktop */}
+        <Card className="hidden md:block">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
@@ -287,6 +303,45 @@ export default function AnalyticsPage() {
             </div>
           </div>
         </Card>
+
+        {/* Data Cards - Mobile */}
+        <div className="block md:hidden space-y-3">
+          {filteredNotes.length === 0 ? (
+            <Card>
+              <CardBody>
+                <div className="text-center py-12 text-gray-400">暂无数据</div>
+              </CardBody>
+            </Card>
+          ) : (
+            filteredNotes.map((note) => (
+              <Card key={note.id}>
+                <CardBody>
+                  <a
+                    href={note.xiaohongshuUrl || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-primary hover:underline line-clamp-2 text-sm"
+                  >
+                    {note.title}
+                  </a>
+                  <div className="text-gray-600 text-xs leading-relaxed mt-1 line-clamp-3">
+                    {note.content || '-'}
+                  </div>
+                  <div className="flex items-center justify-between mt-3 text-xs text-gray-400">
+                    <span>{note.account?.name || '-'}</span>
+                    <span>{formatDate(note.publishedAt || note.createdAt)}</span>
+                  </div>
+                  <div className="flex gap-4 mt-2 text-xs text-gray-500 border-t border-gray-100 pt-2">
+                    <span>👍 {note.likes}</span>
+                    <span>💬 {note.comments}</span>
+                    <span>⭐ {note.bookmarks}</span>
+                    <span>↗️ {note.shares}</span>
+                  </div>
+                </CardBody>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
 
       <SyncModal open={syncModalOpen} onOpenChange={setSyncModalOpen} onSynced={loadAnalytics} />
