@@ -73,6 +73,7 @@ export default function CreatePage() {
 
   // Loading progress simulation
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [loadingStage, setLoadingStage] = useState('')
 
   useEffect(() => {
     if (aiLoading) {
@@ -188,6 +189,7 @@ export default function CreatePage() {
     }
 
     setAiLoading(true)
+    setLoadingStage('AI 选题生成中...')
     setWorkflowError(null)
     setStepLogs([])
     try {
@@ -232,6 +234,7 @@ export default function CreatePage() {
     }
 
     setAiLoading(true)
+    setLoadingStage('AI 文案生成中...')
     setWorkflowError(null)
     setStepLogs([])
 
@@ -373,6 +376,7 @@ export default function CreatePage() {
     }
 
     setAiLoading(true)
+    setLoadingStage('配图提示词生成中...')
     try {
       const res = await api.post('/workflow/image-prompt', {
         title: title,
@@ -400,6 +404,7 @@ export default function CreatePage() {
     }
 
     setImageGenerating(true)
+    setLoadingStage('配图生成中...')
     setWorkflowError(null)
 
     try {
@@ -411,7 +416,7 @@ export default function CreatePage() {
         title,
         imageType,
         imageModel,
-        imagePrompt: confirmedPrompt // 传递已确认的提示词
+        imagePrompt: confirmedPrompt
       })
 
       if (res.data.success && res.data.data) {
@@ -424,7 +429,6 @@ export default function CreatePage() {
         const finalImageUrl = generatedImageUrl || htmlScreenshotUrl
         if (finalImageUrl) {
           setGeneratedImageUrl(finalImageUrl)
-          // 保存到 images 数组
           setImages([finalImageUrl])
         } else if (error) {
           setWorkflowError(error)
@@ -456,6 +460,7 @@ export default function CreatePage() {
     if (!selectedAccount) return
 
     setAiLoading(true)
+    setLoadingStage('AI 重新生成中...')
     try {
       const res = await api.post('/workflow', {
         account: {
@@ -639,7 +644,6 @@ export default function CreatePage() {
                   {workflowError && (
                     <p className="text-red-500 text-xs mt-2">{workflowError}</p>
                   )}
-                  {aiLoading && <LoadingProgress progress={loadingProgress} />}
                   {stepLogs.length > 0 && !aiLoading && (
                     <StepLogDisplay logs={stepLogs} />
                   )}
@@ -719,7 +723,6 @@ export default function CreatePage() {
                     </Button>
                   </div>
                 </div>
-                {aiLoading && <LoadingProgress progress={loadingProgress} />}
                 <div className="form-group">
                   <label className="block text-sm font-medium text-gray-500 mb-1.5">
                     写作要求（可选）
@@ -1298,6 +1301,27 @@ export default function CreatePage() {
         }}
       />
 
+      {/* 进度弹窗 - 手机端全屏居中显示 */}
+      {(aiLoading || imageGenerating) && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 mx-4 max-w-sm w-full flex flex-col items-center gap-4">
+            {/* 旋转动画 */}
+            <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            {/* 百分比 */}
+            <div className="text-4xl font-bold text-primary">{Math.round(loadingProgress)}%</div>
+            {/* 阶段名称 */}
+            <div className="text-sm text-gray-500 text-center">{loadingStage}</div>
+            {/* 进度条 */}
+            <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast 提示 */}
       {toast.show && (
         <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-white text-sm ${
@@ -1310,14 +1334,14 @@ export default function CreatePage() {
   )
 }
 
-// 加载进度条
+// 进度弹窗组件 - 手机端全屏显示旋转+百分比+阶段
 function LoadingProgress({ progress }: { progress: number }) {
   return (
     <div className="mt-3 bg-white border border-gray-100 rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-          <span className="text-sm font-medium text-gray-700">AI 处理中...</span>
+          <span className="text-sm font-medium text-gray-700">处理中...</span>
         </div>
         <span className="text-sm font-bold text-primary">{Math.round(progress)}%</span>
       </div>
@@ -1327,12 +1351,6 @@ function LoadingProgress({ progress }: { progress: number }) {
           style={{ width: `${progress}%` }}
         />
       </div>
-      <p className="text-xs text-gray-400 mt-2">
-        {progress < 30 && '正在连接 AI 服务...'}
-        {progress >= 30 && progress < 60 && '正在生成内容...'}
-        {progress >= 60 && progress < 85 && '正在优化处理...'}
-        {progress >= 85 && '即将完成...'}
-      </p>
     </div>
   )
 }
