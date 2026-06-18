@@ -9,7 +9,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { SyncModal } from '@/components/modals/SyncModal'
 import { useAccountStore } from '@/stores/account-store'
 import api from '@/lib/api'
-import { formatDate } from '@/lib/utils'
+import { formatDate, getPCNoteUrl } from '@/lib/utils'
 import type { NoteWithAccount, AnalyticsFilter, SortField, SortDirection } from '@/types'
 
 export default function AnalyticsPage() {
@@ -268,7 +268,7 @@ export default function AnalyticsPage() {
                     <tr key={note.id} className="border-t border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3">
                         <a
-                          href={note.xiaohongshuUrl || '#'}
+                          href={getPCNoteUrl(note.xiaohongshuUrl) || '#'}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-primary hover:underline line-clamp-2"
