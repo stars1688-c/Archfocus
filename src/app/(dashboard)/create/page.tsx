@@ -99,7 +99,7 @@ export default function CreatePage() {
 
   // Image generation states
   const [imageType, setImageType] = useState<'ai_prompt' | 'html_screenshot'>('ai_prompt')
-  const [imageModel, setImageModel] = useState<string>('gpt-image-2')
+  const [imageModel, setImageModel] = useState<string>('minimax-image-01')
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
   const [imageGenerating, setImageGenerating] = useState(false)
   const [promptConfirmed, setPromptConfirmed] = useState(false) // 提示词是否已确认
@@ -745,7 +745,7 @@ export default function CreatePage() {
                   <p className="text-xs text-gray-400 mt-1">💡 可以直接在AI生成的文案进行修改</p>
                 </div>
                 {/* 可编辑的文案 */}
-                <div className={`relative ${editorFullscreen ? 'fixed inset-0 z-50 bg-white p-4 flex flex-col' : ''}`}>
+                <div className={`${editorFullscreen ? 'fixed inset-0 z-50 bg-white p-4 flex flex-col' : 'relative'}`}>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs text-gray-500">笔记内容（点击可直接修改）</label>
                     <button
@@ -855,9 +855,9 @@ export default function CreatePage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="gpt-image-2">GPT-Image 2（默认）</SelectItem>
+                            <SelectItem value="minimax-image-01">MiniMax Image-01（默认）</SelectItem>
+                            <SelectItem value="gpt-image-2">GPT-Image 2</SelectItem>
                             <SelectItem value="doubao-seedream-5-0-lite">Seedream 5.0</SelectItem>
-                            <SelectItem value="minimax-image-01">MiniMax Image-01</SelectItem>
                           </SelectContent>
                         </Select>
 

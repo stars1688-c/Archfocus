@@ -41,6 +41,7 @@ export async function callMiniMax(
   const requestBody: Record<string, any> = {
     model,
     max_tokens: maxTokens,
+    temperature: 0.7,
     system: systemPrompt,
     messages: [{ role: 'user', content: userMessage }]
   }
