@@ -22,6 +22,17 @@ export default function DraftsPage() {
   const [loading, setLoading] = useState(false)
   const [selectedNote, setSelectedNote] = useState<NoteWithAccount | null>(null)
   const [syncModalOpen, setSyncModalOpen] = useState(false)
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' })
+
+  const copyText = async (text: string) => {
+    const ok = await copyToClipboard(text)
+    if (ok) {
+      setToast({ show: true, message: '已复制到剪贴板', type: 'success' })
+    } else {
+      setToast({ show: true, message: '复制失败，请手动选择文字复制', type: 'error' })
+    }
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 2000)
+  }
 
   useEffect(() => {
     loadNotes()
@@ -243,14 +254,7 @@ const getSyncStatusBadge = (note: NoteWithAccount) => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={async () => {
-                  const ok = await copyToClipboard(selectedNote?.title || '')
-                  if (ok) {
-                    alert('标题已复制')
-                  } else {
-                    alert('复制失败，请手动复制')
-                  }
-                }}
+                onClick={() => copyText(selectedNote?.title || '')}
               >
                 📋 复制
               </Button>
@@ -274,14 +278,7 @@ const getSyncStatusBadge = (note: NoteWithAccount) => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={async () => {
-                      const ok = await copyToClipboard(selectedNote?.content || '')
-                      if (ok) {
-                        alert('内容已复制')
-                      } else {
-                        alert('复制失败，请手动复制')
-                      }
-                    }}
+                    onClick={() => copyText(selectedNote?.content || '')}
                   >
                     📋 复制
                   </Button>
@@ -371,6 +368,15 @@ const getSyncStatusBadge = (note: NoteWithAccount) => {
         </ModalContent>
 
       </Modal>
+
+      {/* Toast 提示 */}
+      {toast.show && (
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-white text-sm ${
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        }`}>
+          {toast.message}
+        </div>
+      )}
     </>
   )
 }

@@ -26,27 +26,35 @@ export function formatDateTime(date: Date | string): string {
   })
 }
 
-// 复制到剪贴板（兼容 HTTP）
+// 复制到剪贴板（兼容 HTTP 和手机端）
 export async function copyToClipboard(text: string): Promise<boolean> {
-  // 首选 Clipboard API（HTTPS 环境）
-  if (navigator.clipboard?.writeText) {
-    try {
+  try {
+    // 首选 Clipboard API（HTTPS / localhost 环境）
+    if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text)
       return true
-    } catch {
-      // 降级到 textarea 方式
     }
+  } catch {
+    // 降级到 textarea 方式
   }
 
-  // 降级方案：textarea + execCommand（HTTP 环境）
+  // 降级方案：textarea + execCommand（HTTP / 老旧浏览器）
+  // 注意：手机端 input/textarea 必须插入 document 且 opacity > 0 才能复制成功
   try {
     const textarea = document.createElement('textarea')
     textarea.value = text
     textarea.style.position = 'fixed'
-    textarea.style.opacity = '0'
-    textarea.style.left = '-9999px'
+    textarea.style.top = '0'
+    textarea.style.left = '0'
+    textarea.style.width = '1px'
+    textarea.style.height = '1px'
+    textarea.style.opacity = '0.01' // 手机端需要 > 0，否则 execCommand 失败
+    textarea.style.pointerEvents = 'none'
+    textarea.style.zIndex = '9999'
     document.body.appendChild(textarea)
+    textarea.focus()
     textarea.select()
+    textarea.setSelectionRange(0, text.length)
     const success = document.execCommand('copy')
     document.body.removeChild(textarea)
     return success
