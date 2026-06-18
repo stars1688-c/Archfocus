@@ -243,9 +243,13 @@ const getSyncStatusBadge = (note: NoteWithAccount) => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  copyToClipboard(selectedNote?.title || '')
-                  alert('标题已复制')
+                onClick={async () => {
+                  const ok = await copyToClipboard(selectedNote?.title || '')
+                  if (ok) {
+                    alert('标题已复制')
+                  } else {
+                    alert('复制失败，请手动复制')
+                  }
                 }}
               >
                 📋 复制
@@ -270,9 +274,13 @@ const getSyncStatusBadge = (note: NoteWithAccount) => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      copyToClipboard(selectedNote?.content || '')
-                      alert('内容已复制')
+                    onClick={async () => {
+                      const ok = await copyToClipboard(selectedNote?.content || '')
+                      if (ok) {
+                        alert('内容已复制')
+                      } else {
+                        alert('复制失败，请手动复制')
+                      }
                     }}
                   >
                     📋 复制

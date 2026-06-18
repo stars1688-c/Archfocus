@@ -13,15 +13,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { content } = body
+    const { title, content } = body
 
-    if (!content) {
-      return NextResponse.json({ success: false, error: '缺少内容' }, { status: 400 })
+    if (!title && !content) {
+      return NextResponse.json({ success: false, error: '缺少标题或内容' }, { status: 400 })
     }
 
     const response = await callMiniMax(
       getImagePromptGenerationPrompt(),
-      `请根据以下笔记内容生成配图提示词：\n\n${content}`
+      `请根据以下笔记内容生成配图提示词：\n\n标题：${title || ''}\n正文：${content || ''}`
     )
 
     return NextResponse.json({

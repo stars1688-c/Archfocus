@@ -64,10 +64,12 @@ export default function CreatePage() {
   const [humanizedContent, setHumanizedContent] = useState('')
   const [sensitiveWords, setSensitiveWords] = useState<{ word: string; type: string }[]>([])
   const [sensitivePassed, setSensitivePassed] = useState(true)
+  const [sensitiveReplacements, setSensitiveReplacements] = useState<Record<string, string>>({})
   const [generatedImagePrompt, setGeneratedImagePrompt] = useState('')
   const [workflowError, setWorkflowError] = useState<string | null>(null)
   const [stepLogs, setStepLogs] = useState<StepLog[]>([])
   const [userFeedback, setUserFeedback] = useState('')
+  const [editorFullscreen, setEditorFullscreen] = useState(false)
 
   // Loading progress simulation
   const [loadingProgress, setLoadingProgress] = useState(0)
@@ -259,7 +261,7 @@ export default function CreatePage() {
         }
 
         if (humanized) {
-          setHumanizedContent(humanized)
+          setHumanizedContent(humanized.slice(0, 800))
         }
 
         if (sensitiveResult) {
@@ -348,12 +350,20 @@ export default function CreatePage() {
   }
 
   const applyContent = () => {
-    setContent(humanizedContent)
+    let finalContent = humanizedContent.slice(0, 800)
+    // 替换敏感词
+    Object.entries(sensitiveReplacements).forEach(([original, replacement]) => {
+      if (replacement.trim()) {
+        finalContent = finalContent.replaceAll(original, replacement)
+      }
+    })
+    setContent(finalContent)
     setShowContentModal(false)
     setHumanizedContent('')
     setRawContent('')
     setSensitiveWords([])
     setSensitivePassed(true)
+    setSensitiveReplacements({})
   }
 
   const handleAIGenerateImagePrompt = async () => {
@@ -365,6 +375,7 @@ export default function CreatePage() {
     setAiLoading(true)
     try {
       const res = await api.post('/workflow/image-prompt', {
+        title: title,
         content: humanizedContent || content
       })
 
@@ -435,8 +446,9 @@ export default function CreatePage() {
   }
 
   // 根据反馈重新生成文案
-  const handleRegenerateWithFeedback = async () => {
-    if (!userFeedback.trim()) {
+  const handleRegenerateWithFeedback = async (feedback?: string) => {
+    const fb = feedback ?? userFeedback
+    if (!fb.trim()) {
       alert('请输入修改意见')
       return
     }
@@ -455,7 +467,7 @@ export default function CreatePage() {
         },
         selectedTopic: title,
         searchEnabled: false,
-        userFeedback,
+        userFeedback: fb,
         rawContent,
         currentStep: 'content_generation'
       })
@@ -468,7 +480,7 @@ export default function CreatePage() {
         }
 
         if (humanized) {
-          setHumanizedContent(humanized)
+          setHumanizedContent(humanized.slice(0, 800))
         }
 
         if (sensitiveResult) {
@@ -666,9 +678,9 @@ export default function CreatePage() {
                     label="笔记标题"
                     placeholder="输入标题，或点击上方 AI 选题..."
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => setTitle(e.target.value.slice(0, 20))}
                   />
-                  <p className="text-xs text-gray-400 text-right mt-1">{title.length}/100</p>
+                  <p className="text-xs text-gray-400 text-right mt-1">{title.length}/20</p>
                 </div>
               </div>
             )}
@@ -722,15 +734,32 @@ export default function CreatePage() {
                   <p className="text-xs text-gray-400 mt-1">💡 可以直接在AI生成的文案进行修改</p>
                 </div>
                 {/* 可编辑的文案 */}
-                <div
-                  contentEditable
-                  className="w-full p-5 bg-gray-50 rounded-xl border-l-4 border-primary outline-none min-h-[200px] whitespace-pre-wrap leading-relaxed"
-                  onBlur={(e) => setContent(e.currentTarget.textContent || '')}
-                  suppressContentEditableWarning
-                >
-                  {humanizedContent || content}
+                <div className={`relative ${editorFullscreen ? 'fixed inset-0 z-50 bg-white p-4 flex flex-col' : ''}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs text-gray-500">笔记内容（点击可直接修改）</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditorFullscreen(!editorFullscreen)}
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 md:hidden"
+                      title={editorFullscreen ? '退出全屏' : '全屏编辑'}
+                    >
+                      {editorFullscreen ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                      )}
+                    </button>
+                  </div>
+                  <div
+                    contentEditable
+                    className={`w-full p-5 bg-gray-50 rounded-xl border-l-4 border-primary outline-none whitespace-pre-wrap leading-relaxed ${editorFullscreen ? 'flex-1 min-h-0 overflow-y-auto' : 'min-h-[200px]'}`}
+                    onBlur={(e) => setContent((e.currentTarget.textContent || '').slice(0, 800))}
+                    suppressContentEditableWarning
+                  >
+                    {humanizedContent || content}
+                  </div>
+                  <p className="text-xs text-gray-400 text-right mt-1">{(humanizedContent || content).length}/800</p>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">💡 可直接点击文案内容进行修改</p>
               </div>
             )}
 
@@ -1143,14 +1172,23 @@ export default function CreatePage() {
                 </div>
                 {!sensitivePassed && sensitiveWords.length > 0 && (
                   <>
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-col gap-2 mt-2">
                       {sensitiveWords.map((item, index) => (
-                        <span key={index} className="bg-red-100 text-red-600 px-2 py-1 rounded text-xs">
-                          {item.word}
-                        </span>
+                        <div key={index} className="flex items-center gap-2">
+                          <span className="bg-red-100 text-red-600 px-2 py-1 rounded text-xs shrink-0">
+                            {item.word}
+                          </span>
+                          <span className="text-xs text-gray-400">→</span>
+                          <input
+                            className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs outline-none focus:border-primary"
+                            placeholder="替换为..."
+                            value={sensitiveReplacements[item.word] || ''}
+                            onChange={(e) => setSensitiveReplacements(prev => ({ ...prev, [item.word]: e.target.value }))}
+                          />
+                        </div>
                       ))}
                     </div>
-                    <p className="text-red-500 text-xs mt-2">请修改这些词语后再使用</p>
+                    <p className="text-orange-500 text-xs mt-2">💡 可修改敏感词后使用，或直接使用（注意平台审核风险）</p>
                   </>
                 )}
               </div>
@@ -1194,7 +1232,7 @@ export default function CreatePage() {
             </Button>
             <Button
               variant="outline"
-              onClick={handleRegenerateWithFeedback}
+              onClick={() => handleRegenerateWithFeedback()}
               disabled={aiLoading || !userFeedback.trim()}
             >
               {aiLoading ? '重新生成中...' : '根据反馈重新生成'}
@@ -1256,7 +1294,7 @@ export default function CreatePage() {
         onOpenChange={setShowRegenerateModal}
         onRegenerate={(feedback) => {
           setUserFeedback(feedback)
-          handleRegenerateWithFeedback()
+          handleRegenerateWithFeedback(feedback)
         }}
       />
 

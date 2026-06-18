@@ -28,8 +28,10 @@ export async function imagePromptGenerationNode(state: ImageWorkflowState): Prom
       }
     }
 
-    // 提取正文内容
+    // 提取标题和正文
+    const titleMatch = (content || '').match(/标题：(.+)/)
     const contentMatch = (content || '').match(/正文：([\s\S]+?)(?:标签：|$)/)
+    const noteTitle = titleMatch?.[1]?.trim() || state.title || ''
     const contentText = contentMatch?.[1]?.trim() || content || ''
     logInfo(stepName, `内容长度: ${contentText.length}字`)
 
@@ -37,7 +39,7 @@ export async function imagePromptGenerationNode(state: ImageWorkflowState): Prom
     const apiStart = Date.now()
     const response = await callMiniMax(
       getImagePromptGenerationPrompt(),
-      `请根据以下笔记内容生成配图提示词：\n\n${contentText}`
+      `请根据以下笔记内容生成配图提示词：\n\n标题：${noteTitle}\n正文：${contentText}`
     )
     const apiDuration = Date.now() - apiStart
     logInfo(stepName, `提示词生成完成（${apiDuration}ms）`)
