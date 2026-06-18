@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         // 获取本地笔记（按来源分别查询）
         const localPlatformNotes = await prisma.note.findMany({
           where: { accountId: account.id, status: 'published', platformSource: 'platform' },
-          select: { id: true, title: true, platformSource: true, syncStatus: true },
+          select: { id: true, title: true, platformSource: true, syncStatus: true, publishedAt: true },
         })
 
         const localExternalNotes = await prisma.note.findMany({
@@ -233,8 +233,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Case 5: 平台创作笔记在 TikOmni 找不到的 = 待关联
+        const PENDING_LINK_GRACE_MS = 48 * 60 * 60 * 1000 // 48 小时缓冲
         for (const note of localPlatformNotes) {
           if (!matchedNoteIds.has(note.id)) {
+            // 新发布的笔记给 TikOmni 足够时间收录，48 小时内不标 pending_link
+            if (note.publishedAt && Date.now() - note.publishedAt.getTime() < PENDING_LINK_GRACE_MS) {
+              continue
+            }
             await prisma.note.update({
               where: { id: note.id },
               data: { syncStatus: 'pending_link' },
