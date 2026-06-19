@@ -238,9 +238,14 @@ export async function contentGenerationNode(state: ContentWorkflowState): Promis
       logWarn(stepName, `标题超20字（${generatedTitle.length}字），已截取前20字`)
     }
 
+    const strippedContent = stripMarkdown(contentMatch?.[1]?.trim() || '')
+    if (strippedContent.length > 800) {
+      logWarn(stepName, `正文超800字（${strippedContent.length}字），请在编辑页面手动精简`)
+    }
+
     const content: GeneratedContent = {
       title: generatedTitle.slice(0, 20),
-      content: stripMarkdown(contentMatch?.[1]?.trim() || '').slice(0, 800),
+      content: strippedContent,
       tags: tagsMatch?.[1]?.split(',').map((t: string) => t.trim()).filter(Boolean) || []
     }
 
