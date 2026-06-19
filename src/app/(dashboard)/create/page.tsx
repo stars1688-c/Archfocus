@@ -180,6 +180,18 @@ export default function CreatePage() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [draftLoaded, setDraftLoaded] = useState(false)
 
+  // 当前渲染快照 ref（在 render 阶段更新，用于 effect cleanup 中判断账号是否变更）
+  const currStateRef = useRef({
+    accountId: '', title: '', content: '', rawContent: '', humanizedContent: '',
+    imagePrompt: '', imageType: 'ai_prompt' as ImageType, htmlStyle: 'magazine' as HtmlStyle,
+    imageModel: '', images: '[]', writingRequirements: '', generatedImagePrompt: '', step: 0,
+  })
+  currStateRef.current = {
+    accountId: selectedAccountId ?? '', title, content, rawContent, humanizedContent,
+    imagePrompt, imageType, htmlStyle, imageModel, images: JSON.stringify(images),
+    writingRequirements, generatedImagePrompt, step: currentStep,
+  }
+
   // 加载草稿（账号切换时恢复未完成的内容）
   useEffect(() => {
     if (!selectedAccountId) return
@@ -237,13 +249,20 @@ export default function CreatePage() {
     }
   }, [selectedAccountId, title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, images, writingRequirements, generatedImagePrompt, currentStep])
 
-  // 内容变化时自动保存
+  // 内容变化时自动保存 + 切换账号时立即保存
   useEffect(() => {
     if (!selectedAccountId || !draftLoaded) return
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     autoSaveTimerRef.current = setTimeout(saveDraft, 2000)
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+      // 账号切换时立即保存当前账号的草稿（防抖期内切账号不丢数据）
+      // cleanup 闭包捕获的是旧渲染的 selectedAccountId（旧账号）
+      // currStateRef 在本次渲染阶段已更新为新的 selectedAccountId（新账号）
+      // 两者不同说明发生了账号切换
+      if (draftLoaded && selectedAccountId && selectedAccountId !== currStateRef.current.accountId) {
+        saveDraft()
+      }
     }
   }, [title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, images, writingRequirements, generatedImagePrompt, currentStep, selectedAccountId, draftLoaded, saveDraft])
 
@@ -383,7 +402,7 @@ export default function CreatePage() {
       }
 
       const humanized = step2Res.data.data.humanizedContent
-      setHumanizedContent(humanized.slice(0, 800))
+      setHumanizedContent(humanized)
       setStepLogs(prev => [...prev, ...(step2Res.data.data.stepLogs || [])])
 
       // Step 3: 敏感词检测
@@ -482,7 +501,7 @@ export default function CreatePage() {
   }
 
   const applyContent = () => {
-    let finalContent = humanizedContent.slice(0, 800)
+    let finalContent = humanizedContent
     // 替换敏感词
     Object.entries(sensitiveReplacements).forEach(([original, replacement]) => {
       if (replacement.trim()) {
@@ -641,7 +660,7 @@ export default function CreatePage() {
       }
 
       const humanized = step2Res.data.data.humanizedContent
-      setHumanizedContent(humanized.slice(0, 800))
+      setHumanizedContent(humanized)
       setStepLogs(prev => [...prev, ...(step2Res.data.data.stepLogs || [])])
 
       // Step 3: 敏感词检测
@@ -923,12 +942,12 @@ export default function CreatePage() {
                   <div
                     contentEditable
                     className="w-full p-5 bg-gray-50 rounded-xl border-l-4 border-primary outline-none whitespace-pre-wrap leading-relaxed min-h-[200px]"
-                    onBlur={(e) => setContent((e.currentTarget.textContent || '').slice(0, 800))}
+                    onBlur={(e) => setContent(e.currentTarget.textContent || '')}
                     suppressContentEditableWarning
                   >
                     {humanizedContent || content}
                   </div>
-                  <p className="text-xs text-gray-400 text-right mt-1">{(humanizedContent || content).length}/800</p>
+                  <p className={`text-xs text-right mt-1 ${(humanizedContent || content).length > 800 ? 'text-red-500 font-medium' : 'text-gray-400'}`}>{(humanizedContent || content).length}/800</p>
                 </div>
 
                 {/* 全屏编辑 Modal */}
@@ -949,12 +968,12 @@ export default function CreatePage() {
                       <div
                         contentEditable
                         className="w-full flex-1 p-5 bg-gray-50 rounded-xl border-l-4 border-primary outline-none whitespace-pre-wrap leading-relaxed overflow-y-auto min-h-0"
-                        onBlur={(e) => setContent((e.currentTarget.textContent || '').slice(0, 800))}
+                        onBlur={(e) => setContent(e.currentTarget.textContent || '')}
                         suppressContentEditableWarning
                       >
                         {humanizedContent || content}
                       </div>
-                      <p className="text-xs text-gray-400 text-right mt-2">{(humanizedContent || content).length}/800</p>
+                      <p className={`text-xs text-right mt-2 ${(humanizedContent || content).length > 800 ? 'text-red-500 font-medium' : 'text-gray-400'}`}>{(humanizedContent || content).length}/800</p>
                     </ModalBody>
                     <ModalFooter>
                       <button
