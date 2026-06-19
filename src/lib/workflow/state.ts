@@ -2,6 +2,9 @@
 
 import type { Account, Topic, SensitiveWordResult } from '../ai/types'
 import type { HtmlStyle } from './htmlStyles'
+export type { HtmlStyle }
+
+export type ImageModel = 'gpt-image-2' | 'doubao-seedream-5-0-lite' | 'minimax-image-01'
 
 // ============================================
 // 工作流日志
@@ -86,7 +89,7 @@ export interface ImageWorkflowState {
 
   // 配置
   imageType: ImageGenerationType
-  imageModel?: 'gpt-image-2' | 'doubao-seedream-5-0-lite'
+  imageModel?: ImageModel
   htmlStyle?: HtmlStyle
 
   // 流程控制

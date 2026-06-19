@@ -245,6 +245,7 @@ async function generateMiniMaxImage(prompt: string, n: number = 1): Promise<Imag
         model: 'image-01',
         prompt,
         num: safeN,
+        seed: Math.floor(Math.random() * 2147483647), // 随机种子，确保每次生成不同图片
       }),
     })
 
@@ -261,6 +262,19 @@ async function generateMiniMaxImage(prompt: string, n: number = 1): Promise<Imag
 
     const imageUrl = data.data?.image_urls?.[0]
     if (imageUrl) {
+      // 下载图片并转为 base64，避免 MiniMax CDN URL 鉴权/CORS 问题
+      try {
+        const imgResponse = await fetch(imageUrl)
+        if (imgResponse.ok) {
+          const imgBuffer = Buffer.from(await imgResponse.arrayBuffer())
+          const imgBase64 = imgBuffer.toString('base64')
+          const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
+          return { success: true, imageBase64: `data:${contentType};base64,${imgBase64}` }
+        }
+      } catch (downloadErr) {
+        console.warn('MiniMax 图片下载失败，使用原始 URL:', downloadErr)
+      }
+      // 降级：返回原始 URL
       return { success: true, imageUrl }
     }
     return { success: false, error: 'MiniMax 未返回图片URL' }

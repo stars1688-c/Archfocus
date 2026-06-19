@@ -27,21 +27,12 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
     const { account, searchEnabled, hotKeywords, excludeTopics } = state
     logInfo(stepName, `searchEnabled=${searchEnabled}, hotKeywords=${hotKeywords?.length || 0}`)
 
-    let userMessage = `请为上述账号人设生成5个小红书选题。`
-    if (excludeTopics && excludeTopics.length > 0) {
-      userMessage += `\n\n请避免以下已有主题：${excludeTopics.join('、')}`
-    }
-
-    // 如果提供了热点词，添加到上下文
-    let hotWordsContext = ''
-    if (hotKeywords && hotKeywords.length > 0) {
-      hotWordsContext = `\n\n当前小红书行业热点词：\n${hotKeywords.map((kw, i) => `${i + 1}. ${kw}`).join('\n')}`
-      logInfo(stepName, `热点词: ${hotKeywords.join(', ')}`)
-    }
-
-    // 如果启用了搜索，先获取搜索结果
+    // 收集上下文，注入到 System Prompt 中
     let searchContext = ''
+    let hotWordsContext = ''
     let searchLog = ''
+
+    // 如果启用了搜索，获取搜索结果
     if (searchEnabled && (account.position || account.audience)) {
       const searchStart = Date.now()
       logInfo(stepName, '开始联网搜索...')
@@ -53,7 +44,7 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
         const data = JSON.parse(output)
         const results = (data.organic || []).slice(0, 3)
         if (results.length > 0) {
-          searchContext = '\n\n当前热点趋势：\n' + results.map((r: any, i: number) =>
+          searchContext = results.map((r: any, i: number) =>
             `${i + 1}. ${r.title}\n   ${(r.snippet || '').substring(0, 100)}`
           ).join('\n\n')
           searchLog = `搜索到 ${results.length} 条热点（${Date.now() - searchStart}ms）`
@@ -67,18 +58,26 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
       logInfo(stepName, searchLog)
     }
 
-    if (searchContext) {
-      userMessage += searchContext
+    // 处理热点词
+    if (hotKeywords && hotKeywords.length > 0) {
+      hotWordsContext = hotKeywords.map((kw, i) => `${i + 1}. ${kw}`).join('\n')
+      logInfo(stepName, `热点词: ${hotKeywords.join(', ')}`)
     }
 
-    if (hotWordsContext) {
-      userMessage += hotWordsContext
-    }
+    // 构建 System Prompt（含所有上下文）
+    const systemPrompt = getTopicGenerationPrompt(account, {
+      searchContext: searchContext || undefined,
+      hotWordsContext: hotWordsContext || undefined,
+      excludeTopics: excludeTopics && excludeTopics.length > 0 ? excludeTopics : undefined
+    })
+
+    // User Message 保持简洁
+    const userMessage = `请为上述账号人设生成5个小红书选题。`
 
     logInfo(stepName, '调用 MiniMax API...')
     const apiStart = Date.now()
     const response = await callMiniMax(
-      getTopicGenerationPrompt(account),
+      systemPrompt,
       userMessage
     )
     const apiDuration = Date.now() - apiStart
@@ -153,12 +152,28 @@ export async function topicGenerationNode(state: ContentWorkflowState): Promise<
       }
     }
 
-    const topicsCount = topics.slice(0, 5).length
+    // 过滤超长标题（>20字），不进行硬截断
+    const validTopics = topics.filter(t => t.title.length <= 20)
+    const rejectedCount = topics.length - validTopics.length
+    if (rejectedCount > 0) {
+      logWarn(stepName, `${rejectedCount} 个标题超20字被丢弃`)
+    }
+
+    const finalTopics = validTopics.slice(0, 5).map(t => ({
+      title: t.title,
+      reason: t.reason.length > 50 ? t.reason.slice(0, 50) : t.reason
+    }))
+
+    if (finalTopics.length === 0) {
+      throw new Error('所有标题均超过20字，请重新生成')
+    }
+
+    const topicsCount = finalTopics.length
     const successLog = createStepLog(stepName, 'success', `生成 ${topicsCount} 个选题（miniMax ${apiDuration}ms）`, stepStart)
     logStepSuccess(stepName, `生成 ${topicsCount} 个选题`, apiDuration)
 
     return {
-      topics: topics.slice(0, 5),
+      topics: finalTopics,
       currentStep: 'topic_generation',
       stepLogs: [...logs, successLog]
     }
@@ -218,9 +233,14 @@ export async function contentGenerationNode(state: ContentWorkflowState): Promis
     const contentMatch = text.match(/正文：([\s\S]+?)(?:标签：|$)/)
     const tagsMatch = text.match(/标签：\[(.+)\]/)
 
+    const generatedTitle = titleMatch?.[1]?.trim() || selectedTopic
+    if (generatedTitle.length > 20) {
+      logWarn(stepName, `标题超20字（${generatedTitle.length}字），已截取前20字`)
+    }
+
     const content: GeneratedContent = {
-      title: titleMatch?.[1]?.trim() || selectedTopic,
-      content: stripMarkdown(contentMatch?.[1]?.trim() || ''),
+      title: generatedTitle.slice(0, 20),
+      content: stripMarkdown(contentMatch?.[1]?.trim() || '').slice(0, 800),
       tags: tagsMatch?.[1]?.split(',').map((t: string) => t.trim()).filter(Boolean) || []
     }
 
@@ -270,7 +290,7 @@ export async function humanizerNode(state: ContentWorkflowState): Promise<Partia
     )
     const apiDuration = Date.now() - apiStart
 
-    const humanized = stripMarkdown(response.text)
+    const humanized = stripMarkdown(response.text).slice(0, 800)
     logInfo(stepName, `润色完成（${apiDuration}ms），字数: ${humanized.length}`)
     const successLog = createStepLog(stepName, 'success', `润色完成（${originalBody.length}字 → ${humanized.length}字，${apiDuration}ms）`, stepStart)
 

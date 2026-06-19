@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { content, title, imageType = 'ai_prompt', imageModel, imagePrompt } = body
+    const { content, title, imageType = 'ai_prompt', imageModel, imagePrompt, htmlStyle } = body
 
     if (!content) {
       return NextResponse.json({ success: false, error: '缺少内容' }, { status: 400 })
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       imageType: imageType as ImageGenerationType,
       imageModel,
       imagePrompt: imagePrompt || undefined,
+      htmlStyle: htmlStyle || undefined,
       currentStep: imagePrompt ? 'image_generation' : 'image_prompt_generation'
     }
 

@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
         content: content || '',
         images: JSON.stringify(images || []),
         status: status || 'pending',
+        syncStatus: 'pending_link',
         publishAt: publishAt ? new Date(publishAt) : null,
         publishedAt: publishedAt ? new Date(publishedAt) : null,
       },

@@ -1,7 +1,7 @@
 // src/app/(dashboard)/create/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccountStore } from '@/stores/account-store'
 import { Header } from '@/components/layout/header'
@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@/components/ui/modal'
 import { ScheduleModal } from '@/components/modals/ScheduleModal'
-import { RegenerateModal } from '@/components/modals/RegenerateModal'
 import api from '@/lib/api'
 import { copyToClipboard } from '@/lib/utils'
 import type { Topic } from '@/lib/ai/types'
@@ -71,17 +70,23 @@ export default function CreatePage() {
   const [userFeedback, setUserFeedback] = useState('')
   const [editorFullscreen, setEditorFullscreen] = useState(false)
 
+  // Image generation states
+  const [imageType, setImageType] = useState<'ai_prompt' | 'html_screenshot'>('ai_prompt')
+  const [imageModel, setImageModel] = useState<string>('gpt-image-2')
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
+  const [imageGenerating, setImageGenerating] = useState(false)
+  const [promptConfirmed, setPromptConfirmed] = useState(false) // 提示词是否已确认
+
   // Loading progress simulation
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadingStage, setLoadingStage] = useState('')
 
   useEffect(() => {
-    if (aiLoading) {
+    if (aiLoading || imageGenerating) {
       setLoadingProgress(0)
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
-          if (prev >= 95) return prev // 卡在 95%，等实际完成
-          // 前 70% 快一点，后面慢一点，模拟真实进度
+          if (prev >= 95) return prev
           const increment = prev < 70 ? 5 + Math.random() * 8 : 1 + Math.random() * 3
           return Math.min(95, prev + increment)
         })
@@ -89,20 +94,12 @@ export default function CreatePage() {
       return () => {
         clearInterval(interval)
         setLoadingProgress(100)
-        // 短暂显示 100% 后重置
         setTimeout(() => setLoadingProgress(0), 600)
       }
     } else {
       setLoadingProgress(0)
     }
-  }, [aiLoading])
-
-  // Image generation states
-  const [imageType, setImageType] = useState<'ai_prompt' | 'html_screenshot'>('ai_prompt')
-  const [imageModel, setImageModel] = useState<string>('minimax-image-01')
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
-  const [imageGenerating, setImageGenerating] = useState(false)
-  const [promptConfirmed, setPromptConfirmed] = useState(false) // 提示词是否已确认
+  }, [aiLoading, imageGenerating])
 
   // Toast 提示状态
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' })
@@ -176,10 +173,74 @@ export default function CreatePage() {
 
   // 弹窗状态
   const [showScheduleModal, setShowScheduleModal] = useState(false)
-  const [showRegenerateModal, setShowRegenerateModal] = useState(false)
-  const [regenerateFeedback, setRegenerateFeedback] = useState('')
 
   const selectedAccount = getSelectedAccount()
+
+  // ===== 自动保存草稿 =====
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [draftLoaded, setDraftLoaded] = useState(false)
+
+  // 加载草稿（账号切换时恢复未完成的内容）
+  useEffect(() => {
+    if (!selectedAccountId) return
+    setDraftLoaded(false)
+
+    const loadDraft = async () => {
+      try {
+        const res = await api.get(`/drafts?accountId=${selectedAccountId}`)
+        if (res.data.success && res.data.data) {
+          const d = res.data.data
+          if (d.title) setTitle(d.title)
+          if (d.content) setContent(d.content)
+          if (d.rawContent) setRawContent(d.rawContent)
+          if (d.humanizedContent) setHumanizedContent(d.humanizedContent)
+          if (d.imagePrompt) setImagePrompt(d.imagePrompt)
+          if (d.imageType) setImageType(d.imageType)
+          if (d.htmlStyle) setHtmlStyle(d.htmlStyle as HtmlStyle)
+          if (d.imageModel) setImageModel(d.imageModel)
+          if (d.step) setCurrentStep(d.step)
+        }
+      } catch (error) {
+        console.error('Load draft error:', error)
+      } finally {
+        setDraftLoaded(true)
+      }
+    }
+
+    loadDraft()
+  }, [selectedAccountId])
+
+  // 自动保存（防抖 2 秒）
+  const saveDraft = useCallback(async () => {
+    if (!selectedAccountId) return
+    try {
+      await api.post('/drafts', {
+        accountId: selectedAccountId,
+        title,
+        content,
+        rawContent,
+        humanizedContent,
+        imagePrompt,
+        imageType,
+        htmlStyle,
+        imageModel,
+        step: currentStep,
+      })
+    } catch (error) {
+      // 静默失败，不干扰用户
+    }
+  }, [selectedAccountId, title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, currentStep])
+
+  // 内容变化时自动保存
+  useEffect(() => {
+    if (!selectedAccountId || !draftLoaded) return
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(saveDraft, 2000)
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    }
+  }, [title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, currentStep, selectedAccountId, draftLoaded, saveDraft])
+  // ===== 自动保存结束 =====
 
   // 调用工作流 API 生成选题（内联展示）
   const handleGenerateTopics = async () => {
@@ -189,10 +250,15 @@ export default function CreatePage() {
     }
 
     setAiLoading(true)
-    setLoadingStage('AI 选题生成中...')
+    setLoadingStage(dataSource.webSearch ? '联网搜索中...' : 'AI 生成选题中...')
     setWorkflowError(null)
     setStepLogs([])
     try {
+      // 如果启用了联网搜索，先展示联网搜索阶段
+      if (dataSource.webSearch) {
+        await new Promise(r => setTimeout(r, 500)) // 短暂展示联网搜索阶段
+        setLoadingStage('AI 生成选题中...')
+      }
       const res = await api.post('/workflow', {
         account: {
           id: selectedAccount.id,
@@ -226,7 +292,7 @@ export default function CreatePage() {
   }
 
 
-  // 手动输入标题后生成文案
+  // 手动输入标题后生成文案（分步执行，显示真实进度）
   const handleGenerateContentWithTitle = async () => {
     if (!selectedAccount || !title.trim()) {
       alert('请输入标题或选择选题')
@@ -234,52 +300,76 @@ export default function CreatePage() {
     }
 
     setAiLoading(true)
-    setLoadingStage('AI 文案生成中...')
     setWorkflowError(null)
     setStepLogs([])
 
+    const account = {
+      id: selectedAccount.id,
+      name: selectedAccount.name,
+      position: selectedAccount.position,
+      audience: selectedAccount.audience,
+      description: selectedAccount.description,
+    }
+
     try {
-      const res = await api.post('/workflow', {
-        account: {
-          id: selectedAccount.id,
-          name: selectedAccount.name,
-          position: selectedAccount.position,
-          audience: selectedAccount.audience,
-          description: selectedAccount.description,
-        },
-        selectedTopic: title,
-        searchEnabled: dataSource.webSearch,
-        hotWordsEnabled: dataSource.hotWords,
-        userRequirements: writingRequirements,
-        currentStep: 'content_generation'
+      // Step 1: 初稿生成
+      setLoadingStage('初稿生成中...')
+      const step1Res = await api.post('/workflow/step', {
+        step: 'content_generation',
+        state: {
+          account,
+          selectedTopic: title,
+          userRequirements: writingRequirements,
+          searchEnabled: dataSource.webSearch,
+        }
       })
 
-      setStepLogs(res.data.data?.stepLogs || [])
-
-      if (res.data.success && res.data.data) {
-        const { rawContent: raw, humanizedContent: humanized, sensitiveResult } = res.data.data
-
-        if (raw) {
-          setRawContent(raw)
-        }
-
-        if (humanized) {
-          setHumanizedContent(humanized.slice(0, 800))
-        }
-
-        if (sensitiveResult) {
-          setSensitivePassed(!!sensitiveResult.passed)
-          setSensitiveWords(sensitiveResult.illegalWords || [])
-        }
-
-        setShowContentModal(true)
-      } else {
-        const errorMsg = res.data.error || '文案生成失败'
-        setWorkflowError(errorMsg)
+      if (!step1Res.data.success) {
+        throw new Error(step1Res.data.error || '文案生成失败')
       }
+
+      const raw = step1Res.data.data.rawContent
+      if (!raw) throw new Error('未获取到文案内容')
+
+      setRawContent(raw)
+      setStepLogs(prev => [...prev, ...(step1Res.data.data.stepLogs || [])])
+
+      // Step 2: 去AI味
+      setLoadingStage('去AI味中...')
+      const step2Res = await api.post('/workflow/step', {
+        step: 'humanization',
+        state: { rawContent: raw }
+      })
+
+      if (!step2Res.data.success) {
+        throw new Error(step2Res.data.error || '润色失败')
+      }
+
+      const humanized = step2Res.data.data.humanizedContent
+      setHumanizedContent(humanized.slice(0, 800))
+      setStepLogs(prev => [...prev, ...(step2Res.data.data.stepLogs || [])])
+
+      // Step 3: 敏感词检测
+      setLoadingStage('敏感词检测中...')
+      const step3Res = await api.post('/workflow/step', {
+        step: 'sensitive_check',
+        state: { humanizedContent: humanized }
+      })
+
+      if (!step3Res.data.success) {
+        throw new Error(step3Res.data.error || '敏感词检测失败')
+      }
+
+      const sensitiveResult = step3Res.data.data.sensitiveResult
+      setSensitivePassed(!!sensitiveResult.passed)
+      setSensitiveWords(sensitiveResult.illegalWords || [])
+      setStepLogs(prev => [...prev, ...(step3Res.data.data.stepLogs || [])])
+
+      // 全部完成，展示内容弹窗
+      setShowContentModal(true)
     } catch (error: any) {
       console.error('Workflow error:', error)
-      const errorMsg = error.response?.data?.error || '文案生成失败'
+      const errorMsg = error.response?.data?.error || error.message || '文案生成失败'
       setWorkflowError(errorMsg)
       setStepLogs([])
     } finally {
@@ -306,6 +396,8 @@ export default function CreatePage() {
       })
 
       if (res.data.success) {
+        // 发布成功后清除草稿
+        api.delete(`/drafts?accountId=${selectedAccount.id}`).catch(() => {})
         alert('发布成功')
         router.push('/drafts')
       }
@@ -404,7 +496,7 @@ export default function CreatePage() {
     }
 
     setImageGenerating(true)
-    setLoadingStage('配图生成中...')
+    setLoadingStage(imageType === 'ai_prompt' ? 'AI 绘图生成中...' : 'HTML 截图生成中...')
     setWorkflowError(null)
     setGeneratedImageUrl(null)
     setImages([])
@@ -454,7 +546,7 @@ export default function CreatePage() {
     }
   }
 
-  // 根据反馈重新生成文案
+  // 根据反馈重新生成文案（分步执行，显示真实进度，完成后展示内容弹窗）
   const handleRegenerateWithFeedback = async (feedback?: string) => {
     const fb = feedback ?? userFeedback
     if (!fb.trim()) {
@@ -465,46 +557,79 @@ export default function CreatePage() {
     if (!selectedAccount) return
 
     setAiLoading(true)
-    setLoadingStage('AI 重新生成中...')
+    setWorkflowError(null)
+
+    const account = {
+      id: selectedAccount.id,
+      name: selectedAccount.name,
+      position: selectedAccount.position,
+      audience: selectedAccount.audience,
+      description: selectedAccount.description,
+    }
+
     try {
-      const res = await api.post('/workflow', {
-        account: {
-          id: selectedAccount.id,
-          name: selectedAccount.name,
-          position: selectedAccount.position,
-          audience: selectedAccount.audience,
-          description: selectedAccount.description,
-        },
-        selectedTopic: title,
-        searchEnabled: false,
-        userFeedback: fb,
-        rawContent,
-        currentStep: 'content_generation'
+      // Step 1: 初稿重新生成
+      setLoadingStage('初稿重新生成中...')
+      const step1Res = await api.post('/workflow/step', {
+        step: 'content_generation',
+        state: {
+          account,
+          selectedTopic: title,
+          userFeedback: fb,
+          rawContent,
+          searchEnabled: false,
+        }
       })
 
-      if (res.data.success && res.data.data) {
-        const { rawContent: raw, humanizedContent: humanized, sensitiveResult } = res.data.data
-
-        if (raw) {
-          setRawContent(raw)
-        }
-
-        if (humanized) {
-          setHumanizedContent(humanized.slice(0, 800))
-        }
-
-        if (sensitiveResult) {
-          setSensitivePassed(!!sensitiveResult.passed)
-          setSensitiveWords(sensitiveResult.illegalWords || [])
-        }
-
-        setUserFeedback('')
-      } else {
-        alert(res.data.error || '重新生成失败')
+      if (!step1Res.data.success) {
+        throw new Error(step1Res.data.error || '文案生成失败')
       }
+
+      const raw = step1Res.data.data.rawContent
+      if (!raw) throw new Error('未获取到文案内容')
+
+      setRawContent(raw)
+      setStepLogs(prev => [...prev, ...(step1Res.data.data.stepLogs || [])])
+
+      // Step 2: 去AI味
+      setLoadingStage('去AI味中...')
+      const step2Res = await api.post('/workflow/step', {
+        step: 'humanization',
+        state: { rawContent: raw }
+      })
+
+      if (!step2Res.data.success) {
+        throw new Error(step2Res.data.error || '润色失败')
+      }
+
+      const humanized = step2Res.data.data.humanizedContent
+      setHumanizedContent(humanized.slice(0, 800))
+      setStepLogs(prev => [...prev, ...(step2Res.data.data.stepLogs || [])])
+
+      // Step 3: 敏感词检测
+      setLoadingStage('敏感词检测中...')
+      const step3Res = await api.post('/workflow/step', {
+        step: 'sensitive_check',
+        state: { humanizedContent: humanized }
+      })
+
+      if (!step3Res.data.success) {
+        throw new Error(step3Res.data.error || '敏感词检测失败')
+      }
+
+      const sensitiveResult = step3Res.data.data.sensitiveResult
+      setSensitivePassed(!!sensitiveResult.passed)
+      setSensitiveWords(sensitiveResult.illegalWords || [])
+      setStepLogs(prev => [...prev, ...(step3Res.data.data.stepLogs || [])])
+
+      setUserFeedback('')
+      // 重新生成完成后展示内容弹窗
+      setShowContentModal(true)
     } catch (error: any) {
       console.error('Regenerate error:', error)
-      alert('重新生成失败')
+      const errorMsg = error.response?.data?.error || error.message || '重新生成失败'
+      setWorkflowError(errorMsg)
+      setStepLogs([])
     } finally {
       setAiLoading(false)
     }
@@ -725,7 +850,7 @@ export default function CreatePage() {
                     <Button
                       variant="ghost"
                       className="text-orange-500"
-                      onClick={() => setShowRegenerateModal(true)}
+                      onClick={() => setShowContentModal(true)}
                     >
                       🔄 重新生成
                     </Button>
@@ -745,25 +870,21 @@ export default function CreatePage() {
                   <p className="text-xs text-gray-400 mt-1">💡 可以直接在AI生成的文案进行修改</p>
                 </div>
                 {/* 可编辑的文案 */}
-                <div className={`${editorFullscreen ? 'fixed inset-0 z-50 bg-white p-4 flex flex-col' : 'relative'}`}>
+                <div className="relative">
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs text-gray-500">笔记内容（点击可直接修改）</label>
                     <button
                       type="button"
-                      onClick={() => setEditorFullscreen(!editorFullscreen)}
+                      onClick={() => setEditorFullscreen(true)}
                       className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
-                      title={editorFullscreen ? '退出全屏' : '全屏编辑'}
+                      title="全屏编辑"
                     >
-                      {editorFullscreen ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                      )}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                     </button>
                   </div>
                   <div
                     contentEditable
-                    className={`w-full p-5 bg-gray-50 rounded-xl border-l-4 border-primary outline-none whitespace-pre-wrap leading-relaxed ${editorFullscreen ? 'flex-1 min-h-0 overflow-y-auto' : 'min-h-[200px]'}`}
+                    className="w-full p-5 bg-gray-50 rounded-xl border-l-4 border-primary outline-none whitespace-pre-wrap leading-relaxed min-h-[200px]"
                     onBlur={(e) => setContent((e.currentTarget.textContent || '').slice(0, 800))}
                     suppressContentEditableWarning
                   >
@@ -771,6 +892,43 @@ export default function CreatePage() {
                   </div>
                   <p className="text-xs text-gray-400 text-right mt-1">{(humanizedContent || content).length}/800</p>
                 </div>
+
+                {/* 全屏编辑 Modal */}
+                <Modal open={editorFullscreen} onOpenChange={setEditorFullscreen}>
+                  <ModalContent className="!inset-4 !top-4 !left-4 !translate-x-0 !translate-y-0 max-w-none max-h-none h-[calc(100%-32px)] w-[calc(100%-32px)] flex flex-col !rounded-xl !p-0 overflow-hidden">
+                    <ModalHeader>
+                      <span className="font-medium">编辑笔记内容</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditorFullscreen(false)}
+                        className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
+                        title="退出全屏"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </ModalHeader>
+                    <ModalBody className="flex-1 flex flex-col min-h-0 px-5 py-4">
+                      <div
+                        contentEditable
+                        className="w-full flex-1 p-5 bg-gray-50 rounded-xl border-l-4 border-primary outline-none whitespace-pre-wrap leading-relaxed overflow-y-auto min-h-0"
+                        onBlur={(e) => setContent((e.currentTarget.textContent || '').slice(0, 800))}
+                        suppressContentEditableWarning
+                      >
+                        {humanizedContent || content}
+                      </div>
+                      <p className="text-xs text-gray-400 text-right mt-2">{(humanizedContent || content).length}/800</p>
+                    </ModalBody>
+                    <ModalFooter>
+                      <button
+                        type="button"
+                        onClick={() => setEditorFullscreen(false)}
+                        className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-medium"
+                      >
+                        完成编辑
+                      </button>
+                    </ModalFooter>
+                  </ModalContent>
+                </Modal>
               </div>
             )}
 
@@ -855,8 +1013,8 @@ export default function CreatePage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="minimax-image-01">MiniMax Image-01（默认）</SelectItem>
-                            <SelectItem value="gpt-image-2">GPT-Image 2</SelectItem>
+                            <SelectItem value="gpt-image-2">GPT-Image 2（默认）</SelectItem>
+                            <SelectItem value="minimax-image-01">MiniMax Image-01</SelectItem>
                             <SelectItem value="doubao-seedream-5-0-lite">Seedream 5.0</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1297,16 +1455,6 @@ export default function CreatePage() {
           }
         }}
         defaultEmail={schedule.email}
-      />
-
-      {/* 重新生成 Modal */}
-      <RegenerateModal
-        open={showRegenerateModal}
-        onOpenChange={setShowRegenerateModal}
-        onRegenerate={(feedback) => {
-          setUserFeedback(feedback)
-          handleRegenerateWithFeedback(feedback)
-        }}
       />
 
       {/* 进度弹窗 - 手机端全屏居中显示 */}

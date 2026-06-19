@@ -88,10 +88,13 @@ const ImageWorkflowAnnotation = Annotation.Root({
   imagePrompt: Annotation<string | undefined>,
   generatedImageUrl: Annotation<string | undefined>,
   htmlScreenshotUrl: Annotation<string | undefined>,
+  htmlScreenshotUrls: Annotation<string[] | undefined>,
+  error: Annotation<string | undefined>,
 
   // 配置
   imageType: Annotation<string>,
   imageModel: Annotation<string | undefined>,
+  htmlStyle: Annotation<string | undefined>,
 
   // 日志
   stepLogs: Annotation<any[] | undefined>,
