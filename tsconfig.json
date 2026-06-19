@@ -18,5 +18,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "a_dai-main"]
+  "exclude": ["node_modules", "a_dai-main", "e2e"]
 }
