@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { accountId, title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, step } = body
+    const { accountId, title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, images, writingRequirements, generatedImagePrompt, step } = body
 
     if (!accountId) {
       return NextResponse.json({ success: false, error: '缺少账号ID' }, { status: 400 })
@@ -73,6 +73,9 @@ export async function POST(request: NextRequest) {
         imageType: imageType ?? 'ai_prompt',
         htmlStyle: htmlStyle ?? 'magazine',
         imageModel: imageModel ?? 'minimax-image-01',
+        images: images ?? '[]',
+        writingRequirements: writingRequirements ?? '',
+        generatedImagePrompt: generatedImagePrompt ?? '',
         step: step ?? 0,
       },
       create: {
@@ -85,6 +88,9 @@ export async function POST(request: NextRequest) {
         imageType: imageType ?? 'ai_prompt',
         htmlStyle: htmlStyle ?? 'magazine',
         imageModel: imageModel ?? 'minimax-image-01',
+        images: images ?? '[]',
+        writingRequirements: writingRequirements ?? '',
+        generatedImagePrompt: generatedImagePrompt ?? '',
         step: step ?? 0,
       },
     })

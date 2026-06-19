@@ -85,6 +85,9 @@ model Draft {
   imageType  String   @default("ai_prompt")
   htmlStyle  String   @default("magazine")
   imageModel String   @default("minimax-image-01")
+  images     String   @default("[]")
+  writingRequirements String @default("")
+  generatedImagePrompt String @default("")
   step       Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

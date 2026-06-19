@@ -199,6 +199,9 @@ export default function CreatePage() {
           if (d.htmlStyle) setHtmlStyle(d.htmlStyle as HtmlStyle)
           if (d.imageModel) setImageModel(d.imageModel)
           if (d.step) setCurrentStep(d.step)
+          if (d.images) try { setImages(JSON.parse(d.images)) } catch {}
+          if (d.writingRequirements) setWritingRequirements(d.writingRequirements)
+          if (d.generatedImagePrompt) setGeneratedImagePrompt(d.generatedImagePrompt)
         }
       } catch (error) {
         console.error('Load draft error:', error)
@@ -224,12 +227,15 @@ export default function CreatePage() {
         imageType,
         htmlStyle,
         imageModel,
+        images: JSON.stringify(images),
+        writingRequirements,
+        generatedImagePrompt,
         step: currentStep,
       })
     } catch (error) {
       // 静默失败，不干扰用户
     }
-  }, [selectedAccountId, title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, currentStep])
+  }, [selectedAccountId, title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, images, writingRequirements, generatedImagePrompt, currentStep])
 
   // 内容变化时自动保存
   useEffect(() => {
@@ -239,7 +245,38 @@ export default function CreatePage() {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     }
-  }, [title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, currentStep, selectedAccountId, draftLoaded, saveDraft])
+  }, [title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, images, writingRequirements, generatedImagePrompt, currentStep, selectedAccountId, draftLoaded, saveDraft])
+
+  // 页面关闭或导航离开时立即保存
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!selectedAccountId) return
+      const payload = JSON.stringify({
+        accountId: selectedAccountId,
+        title,
+        content,
+        rawContent,
+        humanizedContent,
+        imagePrompt,
+        imageType,
+        htmlStyle,
+        imageModel,
+        images: JSON.stringify(images),
+        writingRequirements,
+        generatedImagePrompt,
+        step: currentStep,
+      })
+      navigator.sendBeacon('/api/drafts', new Blob([payload], { type: 'application/json' }))
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      // 组件卸载时立即保存（切模块时触发）
+      if (!selectedAccountId || !draftLoaded) return
+      saveDraft()
+    }
+  }, [selectedAccountId, title, content, rawContent, humanizedContent, imagePrompt, imageType, htmlStyle, imageModel, images, writingRequirements, generatedImagePrompt, currentStep, draftLoaded, saveDraft])
   // ===== 自动保存结束 =====
 
   // 调用工作流 API 生成选题（内联展示）
@@ -503,7 +540,8 @@ export default function CreatePage() {
 
     try {
       const fullContent = `标题：${title}\n正文：${humanizedContent || content}\n标签：[]`
-      const confirmedPrompt = promptConfirmed ? (imagePrompt || generatedImagePrompt) : undefined
+      // 如果有提示词（AI 生成或用户编辑），直接传入工作流，跳过提示词重新生成
+      const confirmedPrompt = imagePrompt || generatedImagePrompt || undefined
 
       const res = await api.post('/workflow/image', {
         content: fullContent,
@@ -895,7 +933,7 @@ export default function CreatePage() {
 
                 {/* 全屏编辑 Modal */}
                 <Modal open={editorFullscreen} onOpenChange={setEditorFullscreen}>
-                  <ModalContent className="!inset-4 !top-4 !left-4 !translate-x-0 !translate-y-0 max-w-none max-h-none h-[calc(100%-32px)] w-[calc(100%-32px)] flex flex-col !rounded-xl !p-0 overflow-hidden">
+                  <ModalContent className="!inset-0 !translate-x-0 !translate-y-0 max-w-none max-h-none h-full w-full flex flex-col !p-0 overflow-hidden !rounded-none">
                     <ModalHeader>
                       <span className="font-medium">编辑笔记内容</span>
                       <button
